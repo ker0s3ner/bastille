@@ -1,0 +1,39 @@
+#!/bin/sh
+# Build thl-keyguard and gpggrid inside the chroot.
+set -e
+
+apt-get install -y --no-install-recommends \
+    libsodium-dev \
+    libkeyutils-dev \
+    libncurses-dev \
+    gcc \
+    make
+
+# thl-keyguard
+cd /usr/local/src/thl-keyguard
+make && make install DESTDIR=
+make clean
+
+# gpggrid
+cd /usr/local/src/gpggrid
+make && make install DESTDIR=
+make clean
+
+# thl-profile
+install -m 0755 /usr/local/src/thl-profile/thl-profile /usr/local/bin/thl-profile
+
+# thl-usb-authorize (already in includes.chroot)
+chmod 0755 /usr/local/sbin/thl-usb-authorize
+
+# Create profile storage dir
+mkdir -p /var/lib/thl/profiles
+chmod 700 /var/lib/thl/profiles
+mkdir -p /run/thl  # created fresh each boot by tmpfiles.d
+
+# tmpfiles.d entry so /run/thl is created at boot
+cat > /etc/tmpfiles.d/thl.conf << 'EOF'
+d /run/thl 0700 root root -
+d /run/thl/profiles 0700 root root -
+EOF
+
+echo "thl-keyguard, gpggrid, thl-profile installed."

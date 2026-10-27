@@ -1,0 +1,185 @@
+#!/bin/sh
+# Wire all new features into the chroot image.
+set -e
+
+# ── Packages ───────────────────────────────────────────────────────────────
+
+apt-get install -y --no-install-recommends \
+    python3 \
+    python3-opencv \
+    python3-numpy \
+    libnotify-bin \
+    parted \
+    cryptsetup \
+    live-boot \
+    live-boot-initramfs-tools \
+    iproute2 \
+    wireguard-tools \
+    libsodium-dev \
+    libpthread-stubs0-dev \
+    gcc
+
+# ── Build USB inspector ────────────────────────────────────────────────────
+
+cd /usr/local/src/thl-usb
+
+gcc -O2 -Wall \
+    -o /usr/local/sbin/thl-usb-inspector \
+    thl-usb-inspector.c \
+    -lsodium -lpthread
+
+gcc -O2 -Wall \
+    -o /usr/local/sbin/thl-usb-pin-dialog \
+    thl-usb-pin-dialog.c \
+    -lsodium
+
+install -m 0755 thl-usb-pin-input /usr/local/sbin/thl-usb-pin-input
+
+# ── Install vision guard ───────────────────────────────────────────────────
+
+install -m 0755 /usr/local/src/thl-vision/thl-vision-guard \
+    /usr/local/sbin/thl-vision-guard
+
+# Default vision guard config
+mkdir -p /etc/thl
+cat > /etc/thl/vision-guard.conf << 'EOF'
+[vision-guard]
+lock_after_secs = 10
+privacy_faces   = 2
+privacy_dim     = 0.05
+camera_device   = 0
+check_interval  = 0.5
+debug           = false
+EOF
+
+# ── Install network guard ──────────────────────────────────────────────────
+
+chmod 0755 /usr/local/sbin/thl-network-guard
+chmod 0644 /etc/nftables/thl-offline.nft
+
+# ── Install persistence tool ───────────────────────────────────────────────
+
+mkdir -p /usr/local/src/thl-persist
+install -m 0755 /usr/local/src/thl-persist/thl-persist-setup \
+    /usr/local/bin/thl-persist-setup
+
+# ── Wipe scripts ──────────────────────────────────────────────────────────
+
+chmod 0700 \
+    /etc/thl/actions/fake-wipe.sh \
+    /etc/thl/actions/full-wipe.sh
+
+# ── Threat database ────────────────────────────────────────────────────────
+
+mkdir -p /etc/thl/usb-threat-db
+cat > /etc/thl/usb-threat-db/forensic.conf << 'EOF'
+# THL USB forensic tool threat database
+# Format: VID:PID Description
+# Lines starting with # are comments.
+# The built-in list in thl-usb-inspector covers Cellebrite, MSAB, Oxygen,
+# Magnet, MediaTek BROM, Qualcomm EDL. Add hardware-specific entries here.
+
+# Example: my organisation's approved forensic tool (add to allowlist, not here)
+# 0000:0000 Example tool
+
+# Commonly-seen JTAG/UART bridges used in forensic extraction (flagged when locked)
+0403:6014 FTDI FT232H (flag-if-locked)
+10C4:EA60 Silicon Labs CP210x (flag-if-locked)
+EOF
+
+chmod 600 /etc/thl/usb-threat-db/forensic.conf
+
+# ── Systemd services ───────────────────────────────────────────────────────
+
+# USB inspector
+cat > /etc/systemd/system/thl-usb-inspector.service << 'EOF'
+[Unit]
+Description=THL USB threat detection and PIN gate
+After=sysinit.target udev.target
+Before=graphical.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/thl-usb-inspector
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Vision guard (user service — needs Wayland session)
+mkdir -p /etc/systemd/user
+cat > /etc/systemd/user/thl-vision-guard.service << 'EOF'
+[Unit]
+Description=THL vision guard (focus loss lock + privacy screen)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/thl-vision-guard
+Restart=on-failure
+RestartSec=5
+Environment="DISPLAY="
+
+[Install]
+WantedBy=graphical-session.target
+EOF
+
+# Network guard
+cat > /etc/systemd/system/thl-network-guard.service << 'EOF'
+[Unit]
+Description=THL network security enforcer (offline mode)
+After=network-online.target wg-quick@wg0.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/thl-network-guard watch
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable services
+systemctl enable thl-usb-inspector.service
+systemctl enable thl-network-guard.service
+systemctl enable thl-ram-scrub.timer
+
+# Vision guard is user-level — enable via skel
+mkdir -p /etc/skel/.config/systemd/user
+ln -sf /etc/systemd/user/thl-vision-guard.service \
+    /etc/skel/.config/systemd/user/thl-vision-guard.service
+mkdir -p /etc/skel/.config/systemd/user/graphical-session.target.wants
+ln -sf /etc/systemd/user/thl-vision-guard.service \
+    /etc/skel/.config/systemd/user/graphical-session.target.wants/thl-vision-guard.service
+
+# ── Swayidle: sleep every 3 minutes ───────────────────────────────────────
+# Update Sway config to lock after 3 minutes idle (was 5 minutes)
+if [ -f /etc/skel/.config/sway/config ]; then
+    sed -i 's/timeout 300  .*/timeout 180  '"'"'\/usr\/local\/sbin\/thl-lock'"'"'/' \
+        /etc/skel/.config/sway/config
+fi
+
+# ── Transparent hugepages disabled ────────────────────────────────────────
+cat > /etc/systemd/system/thl-disable-thp.service << 'EOF'
+[Unit]
+Description=Disable transparent hugepages (RAM minimization)
+DefaultDependencies=no
+After=sysinit.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'echo never > /sys/kernel/mm/transparent_hugepage/enabled; echo never > /sys/kernel/mm/transparent_hugepage/defrag'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable thl-disable-thp.service
+
+echo "All new THL features installed and enabled."

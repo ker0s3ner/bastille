@@ -1,0 +1,140 @@
+#!/usr/sbin/nft -f
+#
+# THL VPN kill-switch + DNS enforcement
+#
+# Policy:
+#   - All traffic is blocked by default.
+#   - Only traffic through the WireGuard interface (wg0) is allowed out.
+#   - DNS is forced through systemd-resolved on 127.0.0.53 only;
+#     any app trying to reach port 53 on any other address is dropped.
+#   - I2P SAM/proxy ports are allowed locally.
+#   - Loopback is unrestricted.
+#   - DHCP (port 67/68) is allowed on the physical interface so WireGuard
+#     can establish its UDP tunnel in the first place.
+#   - ICMPv6 neighbour discovery is allowed so IPv6 link-local works.
+#
+# To temporarily allow direct traffic (e.g. captive portal login), run:
+#   nft add rule inet thl-killswitch output oifname "eth0" accept
+# and remove it again with:
+#   nft delete rule inet thl-killswitch output oifname "eth0" handle <N>
+
+flush ruleset
+
+table inet thl-killswitch {
+
+    # ------------------------------------------------------------------ #
+    # Sets — update these as needed                                        #
+    # ------------------------------------------------------------------ #
+
+    # Physical / uplink interfaces (not wg0). Add yours if different.
+    set uplink_ifaces {
+        type ifname
+        elements = { "eth0", "wlan0", "enp0s3", "wlp2s0" }
+    }
+
+    # DNS resolvers we allow systemd-resolved to reach over wg0.
+    # By default: Mullvad (100.64.0.23 inside WireGuard) and quad9.
+    # Replace with your VPN provider's internal DNS if different.
+    set allowed_dns {
+        type ipv4_addr
+        flags interval
+        elements = { 100.64.0.0/10, 9.9.9.9, 149.112.112.112 }
+    }
+
+    set allowed_dns6 {
+        type ipv6_addr
+        flags interval
+        elements = { 2620:fe::/48, 2620:119:35::/48 }
+    }
+
+    # ------------------------------------------------------------------ #
+    # INPUT                                                                #
+    # ------------------------------------------------------------------ #
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        # Allow established / related sessions
+        ct state established,related accept
+
+        # Loopback (localhost + systemd-resolved at 127.0.0.53)
+        iif lo accept
+
+        # DHCP responses from uplink (needed to get an IP so WG can connect)
+        iifname @uplink_ifaces udp sport 67 udp dport 68 accept
+
+        # WireGuard tunnel traffic coming back in
+        iifname "wg0" accept
+
+        # ICMPv6 neighbour discovery
+        icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert,
+                       nd-router-solicit, nd-router-advert } accept
+
+        # Drop everything else silently
+        drop
+    }
+
+    # ------------------------------------------------------------------ #
+    # FORWARD                                                              #
+    # ------------------------------------------------------------------ #
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        # We are not a router; drop all forwarded traffic.
+    }
+
+    # ------------------------------------------------------------------ #
+    # OUTPUT                                                               #
+    # ------------------------------------------------------------------ #
+    chain output {
+        type filter hook output priority filter; policy drop;
+
+        # Loopback always allowed
+        oif lo accept
+
+        # Allow established / related (replies to our own connections)
+        ct state established,related accept
+
+        # --- DNS enforcement ---
+        # systemd-resolved is the only process that may send DNS queries.
+        # It runs as user "systemd-resolve" (uid 101 on Debian).
+        # All other processes hitting port 53 are dropped here and must
+        # use 127.0.0.53 (resolved's stub listener) instead.
+        meta skuid != 101 tcp dport 53 drop
+        meta skuid != 101 udp dport 53 drop
+
+        # resolved itself may only reach DNS over the VPN tunnel
+        meta skuid 101 oifname "wg0" ip daddr @allowed_dns  udp dport { 53, 853 } accept
+        meta skuid 101 oifname "wg0" ip daddr @allowed_dns  tcp dport { 53, 853 } accept
+        meta skuid 101 oifname "wg0" ip6 daddr @allowed_dns6 udp dport { 53, 853 } accept
+        meta skuid 101 oifname "wg0" ip6 daddr @allowed_dns6 tcp dport { 53, 853 } accept
+        # Drop any other DNS attempt from resolved (e.g. to a rogue server)
+        meta skuid 101 udp dport 53 drop
+        meta skuid 101 tcp dport 53 drop
+
+        # --- WireGuard handshake / keepalive over uplink ---
+        # WG needs UDP to reach the VPN endpoint before the tunnel is up.
+        # This is the only direct-to-internet traffic we permit.
+        oifname @uplink_ifaces udp dport 51820 accept
+        # Allow DHCP out so we can get an IP address
+        oifname @uplink_ifaces udp sport 68 udp dport 67 accept
+
+        # --- HTTPS-only enforcement ---
+        # Block cleartext HTTP (port 80) and other unencrypted web ports
+        # on the WireGuard interface. Browsers and apps must use HTTPS (443)
+        # or TLS-wrapped equivalents. This prevents accidental cleartext
+        # credential exposure even if an app tries HTTP fallback.
+        oifname "wg0" tcp dport { 80, 8080, 8000, 3000 } drop
+
+        # Allow HTTPS and common TLS ports through VPN
+        oifname "wg0" tcp dport { 443, 8443, 993, 995, 465, 587 } accept
+
+        # --- All other traffic must go through WireGuard ---
+        oifname "wg0" accept
+
+        # ICMPv6 neighbour discovery outbound
+        icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert,
+                       nd-router-solicit, nd-router-advert } accept
+
+        # Drop everything else (kill-switch engages here)
+        drop
+    }
+}

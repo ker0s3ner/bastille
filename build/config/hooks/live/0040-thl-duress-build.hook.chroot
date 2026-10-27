@@ -1,0 +1,26 @@
+#!/bin/sh
+# Build and install pam_thl_duress.so + thl-duress-setup inside the chroot.
+set -e
+
+# Dependencies must be installed before this hook runs.
+apt-get install -y --no-install-recommends \
+    libpam0g-dev \
+    libsodium-dev \
+    gcc \
+    make \
+    dpkg-dev
+
+# The source is injected into the image via includes.chroot.
+# We build it there and then clean up the source to keep the image small.
+cd /usr/local/src/thl-duress
+make
+make install DESTDIR=
+make clean
+
+# Set action scripts executable and root-only
+chmod 0700 /etc/thl/actions
+chmod 0750 /etc/thl/actions/*.sh
+chown -R root:root /etc/thl
+
+# Install the PAM config snippet
+# (written by 0050-thl-pam.hook.chroot which runs next)

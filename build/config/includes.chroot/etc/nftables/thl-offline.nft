@@ -1,0 +1,20 @@
+#!/usr/sbin/nft -f
+# thl-offline.nft — emergency offline mode table
+# Loaded by thl-network-guard when VPN/DNS security cannot be guaranteed.
+# Overrides thl-killswitch by adding a higher-priority drop-all table.
+# Removed by thl-network-guard --restore.
+
+table inet thl-offline {
+    chain offline-output {
+        type filter hook output priority -10; policy drop;
+        # Allow loopback only
+        oif lo accept
+        drop
+    }
+    chain offline-input {
+        type filter hook input priority -10; policy drop;
+        iif lo accept
+        ct state established,related accept
+        drop
+    }
+}

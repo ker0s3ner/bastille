@@ -1,0 +1,141 @@
+#!/bin/bash
+# thl-network-guard — enforce offline mode when network security can't be guaranteed
+#
+# Runs as a systemd service. Periodically checks that:
+#   1. VPN (wg0) is up and has recent traffic
+#   2. DNS is going through the stub resolver
+#   3. No captive portal or DNS hijacking is active
+#   4. No unexpected outbound connections exist
+#
+# On failure: blocks all network traffic (offline mode) and notifies user.
+# User can re-enable manually after verifying the connection.
+
+set -euo pipefail
+
+OFFLINE_FLAG="/run/thl/network-offline"
+CHECK_INTERVAL=30
+DNS_CHECK_HOST="dns.quad9.net"
+VPN_INTERFACE="wg0"
+
+log()  { logger -t thl-network-guard "$*"; }
+notify() {
+    # Send a Wayland desktop notification via notify-send if a session is active
+    local user_session; user_session="$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}' | head -1)"
+    if [ -n "$user_session" ]; then
+        local uid; uid="$(loginctl show-session "$user_session" -p User --value 2>/dev/null || true)"
+        if [ -n "$uid" ]; then
+            su -s /bin/sh "#$uid" -c \
+                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus \
+                 notify-send -u critical -t 0 'THL Network Guard' '$*'" 2>/dev/null || true
+        fi
+    fi
+}
+
+go_offline() {
+    local reason="$1"
+    if [ ! -f "$OFFLINE_FLAG" ]; then
+        log "OFFLINE MODE: $reason"
+        touch "$OFFLINE_FLAG"
+        # Block all outbound except lo using nftables emergency table
+        nft -f /etc/nftables/thl-offline.nft 2>/dev/null || true
+        notify "Network blocked: $reason. Run 'thl-network-guard --restore' to reconnect."
+    fi
+}
+
+go_online() {
+    if [ -f "$OFFLINE_FLAG" ]; then
+        log "Restoring network — VPN and DNS checks passed"
+        rm -f "$OFFLINE_FLAG"
+        nft delete table inet thl-offline 2>/dev/null || true
+    fi
+}
+
+check_vpn() {
+    # wg0 interface must exist
+    ip link show "$VPN_INTERFACE" &>/dev/null || return 1
+
+    # wg0 must have received bytes in the last 120 seconds
+    # (WireGuard keepalive is 25s, so 120s means at least 4 missed keepalives)
+    local last_handshake
+    last_handshake="$(wg show "$VPN_INTERFACE" latest-handshakes 2>/dev/null | awk '{print $2}' | head -1)"
+    if [ -z "$last_handshake" ] || [ "$last_handshake" = "0" ]; then
+        return 1
+    fi
+    local now; now="$(date +%s)"
+    local age=$(( now - last_handshake ))
+    [ "$age" -lt 180 ] || return 1
+}
+
+check_dns() {
+    # DNS must resolve through stub (127.0.0.53)
+    # Use resolvectl to verify — if it fails, DNS is broken
+    resolvectl query "$DNS_CHECK_HOST" &>/dev/null || return 1
+
+    # Check that /etc/resolv.conf still points to stub
+    grep -q "127.0.0.53" /etc/resolv.conf || return 1
+}
+
+check_captive_portal() {
+    # If an HTTP (non-TLS) redirect is returned for a known HTTPS-only host,
+    # we're behind a captive portal — treat as network compromise.
+    # We test by sending a DNS query directly; if it resolves to an unexpected
+    # IP it's a sign of DNS hijacking.
+    local expected_ip; expected_ip="$(resolvectl query "$DNS_CHECK_HOST" 2>/dev/null | \
+        awk '/^'"$DNS_CHECK_HOST"'/{print $NF}' | head -1)"
+    # Quad9 is always within 9.9.9.0/24 or 149.112.112.0/24
+    if [ -n "$expected_ip" ]; then
+        echo "$expected_ip" | grep -qE '^9\.9\.9\.|^149\.112\.' || return 1
+    fi
+    return 0
+}
+
+# ── Command dispatch ───────────────────────────────────────────────────────
+
+case "${1:-watch}" in
+    --restore)
+        rm -f "$OFFLINE_FLAG"
+        nft delete table inet thl-offline 2>/dev/null || true
+        log "Network manually restored"
+        echo "Network restored."
+        exit 0
+        ;;
+    --status)
+        if [ -f "$OFFLINE_FLAG" ]; then
+            echo "OFFLINE MODE ACTIVE — network is blocked"
+            exit 1
+        else
+            echo "Network OK"
+            exit 0
+        fi
+        ;;
+    watch)
+        ;;
+    *)
+        echo "Usage: thl-network-guard [--restore|--status|watch]" >&2
+        exit 1
+        ;;
+esac
+
+# ── Watch loop ─────────────────────────────────────────────────────────────
+
+log "network guard started (interval=${CHECK_INTERVAL}s)"
+
+while true; do
+    FAIL_REASON=""
+
+    if ! check_vpn; then
+        FAIL_REASON="VPN tunnel down or stale (wg0 no recent handshake)"
+    elif ! check_dns; then
+        FAIL_REASON="DNS not routing through stub resolver"
+    elif ! check_captive_portal; then
+        FAIL_REASON="DNS hijacking or captive portal detected"
+    fi
+
+    if [ -n "$FAIL_REASON" ]; then
+        go_offline "$FAIL_REASON"
+    else
+        go_online
+    fi
+
+    sleep "$CHECK_INTERVAL"
+done

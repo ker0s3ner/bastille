@@ -1,0 +1,27 @@
+#!/bin/sh
+# Enable THL systemd units inside the chroot at build time.
+set -e
+
+# Core network security services
+systemctl enable nftables.service
+systemctl enable systemd-resolved.service
+systemctl enable thl-enforce-dns.service
+
+# VPN — wg-quick@wg0 is enabled but will only start if wg0.conf exists
+# (populated by the profile setup or the user's own config)
+systemctl enable wg-quick@wg0.service || true
+
+# I2P router
+systemctl enable i2pd.service
+
+# AppArmor
+systemctl enable apparmor.service
+
+# Greeter (Wayland login)
+systemctl enable greetd.service
+
+# Disable services that leak information or are unnecessary
+systemctl disable avahi-daemon.service   || true
+systemctl disable cups.service           || true
+systemctl disable bluetooth.service      || true
+systemctl mask    NetworkManager-wait-online.service || true

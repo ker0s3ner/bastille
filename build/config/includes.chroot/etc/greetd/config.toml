@@ -1,0 +1,7 @@
+[terminal]
+vt = 1
+
+[default_session]
+# tuigreet: text-mode greeter that works before any GPU driver is up
+command = "tuigreet --time --remember --cmd sway"
+user = "greeter"

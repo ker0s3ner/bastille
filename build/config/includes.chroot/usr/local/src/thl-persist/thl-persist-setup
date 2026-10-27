@@ -1,0 +1,237 @@
+#!/bin/bash
+# thl-persist-setup — create a LUKS2-encrypted persistence volume on a live USB
+#
+# THL live USB boots without persistence by default (like Tails).
+# Run this tool once to create a LUKS2 persistence partition on the same USB
+# drive. On subsequent boots, live-boot will mount it automatically after
+# prompting for the passphrase.
+#
+# What is persisted (configurable via /etc/thl/persistence.conf):
+#   - GnuPG keyring (/home/user/.gnupg)
+#   - WireGuard config (/etc/wireguard)
+#   - SSH keys (/home/user/.ssh)
+#   - THL profiles (/var/lib/thl/profiles)
+#   - Browser profile (/home/user/.mozilla)
+#   - i2pd router info (/var/lib/i2pd)
+#   - Custom: any path listed in /etc/thl/persistence.conf
+#
+# Everything else is ephemeral and gone on reboot.
+#
+# Usage:
+#   thl-persist-setup --device /dev/sdX  (create persistence partition)
+#   thl-persist-setup --status           (show persistence state)
+#   thl-persist-setup --nuke             (wipe persistence volume)
+#
+# The persistence partition is a LUKS2 container with ext4 inside,
+# labelled "persistence" (required by live-boot).
+# A persistence.conf inside the volume tells live-boot which directories
+# to bind-mount.
+
+set -euo pipefail
+
+PERSIST_LABEL="persistence"
+PERSIST_SIZE_MB="${THL_PERSIST_SIZE_MB:-4096}"   # 4 GB default
+LUKS_CIPHER="aes-xts-plain64"
+LUKS_KEYSIZE=512
+LUKS_HASH="sha512"
+LUKS_PBKDF="argon2id"
+LUKS_PBKDF_MEM=1048576  # 1 GB RAM for Argon2id
+
+die()  { echo "ERROR: $*" >&2; exit 1; }
+info() { echo "  $*"; }
+
+require_root() { [ "$(id -u)" -eq 0 ] || die "must run as root"; }
+
+# ── Detect the USB drive we booted from ───────────────────────────────────
+
+detect_live_device() {
+    # live-boot records the boot device
+    local boot_dev
+    boot_dev="$(grep -o 'live-media-path=[^ ]*\|findiso=[^ ]*' /proc/cmdline 2>/dev/null || true)"
+
+    # Try /dev/disk/by-label/THL*
+    for d in /dev/disk/by-label/THL* /dev/disk/by-label/TINFOIL*; do
+        [ -e "$d" ] && { readlink -f "$d"; return; }
+    done
+
+    # Fallback: ask user
+    echo ""
+}
+
+# ── Create persistence partition ──────────────────────────────────────────
+
+create_persistence() {
+    local device="$1"
+    require_root
+
+    # Validate device
+    [ -b "$device" ] || die "$device is not a block device"
+
+    info "Target device: $device"
+    info "Persistence size: ${PERSIST_SIZE_MB} MB"
+    echo
+    echo "  WARNING: This will ADD a partition to $device."
+    echo "  Existing partitions will NOT be modified."
+    echo
+    read -rp "  Type YES to continue: " ans
+    [[ "$ans" == "YES" ]] || { echo "Aborted."; exit 0; }
+
+    # Find free space at end of device
+    local sectors; sectors="$(blockdev --getsz "$device")"
+    local sector_size; sector_size="$(blockdev --getss "$device")"
+    info "Device sectors: $sectors (sector size: $sector_size bytes)"
+
+    # Use parted to add a new partition in the remaining free space
+    info "Adding persistence partition..."
+    parted -s "$device" mkpart primary "${PERSIST_SIZE_MB}MiB" -- -1MiB \
+        || die "parted failed — is there free space at the end of the device?"
+
+    # Find new partition number
+    local new_part
+    new_part="$(lsblk -no NAME "$device" | tail -1)"
+    local new_part_dev="/dev/$new_part"
+    [ -b "$new_part_dev" ] || die "Could not find new partition at $new_part_dev"
+    info "New partition: $new_part_dev"
+
+    # LUKS2 format
+    info "Formatting with LUKS2 (Argon2id)..."
+    cryptsetup luksFormat \
+        --type luks2 \
+        --cipher "$LUKS_CIPHER" \
+        --key-size "$LUKS_KEYSIZE" \
+        --hash "$LUKS_HASH" \
+        --pbkdf "$LUKS_PBKDF" \
+        --pbkdf-memory "$LUKS_PBKDF_MEM" \
+        --pbkdf-parallel 4 \
+        --label "thl-persist" \
+        "$new_part_dev"
+
+    info "Opening LUKS container..."
+    cryptsetup luksOpen "$new_part_dev" thl-persist-setup-tmp
+
+    info "Formatting ext4..."
+    mkfs.ext4 -L "$PERSIST_LABEL" /dev/mapper/thl-persist-setup-tmp
+
+    info "Mounting..."
+    local mnt; mnt="$(mktemp -d)"
+    mount /dev/mapper/thl-persist-setup-tmp "$mnt"
+
+    # Write live-boot persistence.conf
+    info "Writing persistence.conf..."
+    cat > "$mnt/persistence.conf" << 'EOF'
+# THL live USB persistence configuration
+# Syntax: <path> [options]
+# live-boot bind-mounts each listed path from this volume.
+
+/home/user/.gnupg
+/home/user/.ssh
+/home/user/.mozilla
+/home/user/.thl
+/etc/wireguard
+/var/lib/thl/profiles
+/var/lib/i2pd
+EOF
+
+    # Create directory structure
+    for d in home/user/.gnupg home/user/.ssh home/user/.mozilla home/user/.thl \
+              etc/wireguard var/lib/thl/profiles var/lib/i2pd; do
+        mkdir -p "$mnt/$d"
+        chmod 700 "$mnt/$d"
+    done
+
+    umount "$mnt"
+    rmdir "$mnt"
+    cryptsetup luksClose thl-persist-setup-tmp
+
+    echo
+    echo "  Persistence volume created on $new_part_dev"
+    echo "  Label: $PERSIST_LABEL (live-boot will find it automatically)"
+    echo "  Passphrase: the one you just set for LUKS"
+    echo
+    echo "  On next boot, live-boot will mount the persistence volume"
+    echo "  and bind-mount the listed directories."
+}
+
+# ── Status ─────────────────────────────────────────────────────────────────
+
+show_status() {
+    echo "=== THL Persistence Status ==="
+
+    # Check if running live
+    if [ -f /run/live/medium ]; then
+        info "Live boot detected (medium: $(cat /run/live/medium 2>/dev/null || echo 'unknown'))"
+    else
+        info "Not running from live media"
+    fi
+
+    # Check if persistence is mounted
+    if grep -q "persistence" /proc/mounts 2>/dev/null; then
+        info "Persistence volume IS mounted:"
+        grep "persistence" /proc/mounts | while read -r line; do
+            info "  $line"
+        done
+    else
+        info "Persistence volume NOT mounted (ephemeral boot)"
+    fi
+
+    # Check for persistence partitions
+    for dev in /dev/disk/by-label/persistence*; do
+        [ -e "$dev" ] && info "Found persistence partition: $(readlink -f "$dev")"
+    done
+}
+
+# ── Nuke ───────────────────────────────────────────────────────────────────
+
+nuke_persistence() {
+    local device="${1:-}"
+    [ -n "$device" ] || die "specify --device for nuke"
+    require_root
+
+    echo "  WARNING: This will PERMANENTLY DESTROY the persistence volume on $device."
+    read -rp "  Type NUKE to confirm: " ans
+    [[ "$ans" == "NUKE" ]] || { echo "Aborted."; exit 0; }
+
+    # Find partition labelled thl-persist
+    local part
+    part="$(blkid -L thl-persist 2>/dev/null || true)"
+    [ -n "$part" ] || die "No partition with label thl-persist found"
+
+    # Close if open
+    cryptsetup luksClose thl-persist 2>/dev/null || true
+
+    info "Shredding LUKS header..."
+    cryptsetup erase "$part" 2>/dev/null || true
+    shred -u -z -n 3 "$part" 2>/dev/null || dd if=/dev/urandom of="$part" bs=4M status=progress || true
+
+    info "Removing partition..."
+    parted -s "$device" rm "$(lsblk -no PARTNO "$part")" || true
+
+    echo "  Persistence volume destroyed."
+}
+
+# ── Dispatch ───────────────────────────────────────────────────────────────
+
+case "${1:---help}" in
+    --device)
+        create_persistence "${2:-}"
+        ;;
+    --status)
+        show_status
+        ;;
+    --nuke)
+        nuke_persistence "${2:-}"
+        ;;
+    --help|-h|*)
+        cat << 'EOF'
+thl-persist-setup — LUKS2-encrypted persistence for THL live USB
+
+Usage:
+  thl-persist-setup --device /dev/sdX   create persistence partition
+  thl-persist-setup --status            check persistence state
+  thl-persist-setup --nuke /dev/sdX     destroy persistence volume
+
+The persistence partition is labelled "persistence" so live-boot
+finds it automatically on next boot.
+EOF
+        ;;
+esac

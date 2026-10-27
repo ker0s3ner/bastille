@@ -1,0 +1,10 @@
+[Unit]
+Description=THL periodic RAM page cache scrub
+After=multi-user.target
+
+[Service]
+Type=oneshot
+# Drop filesystem page cache, dentries and inodes.
+# Sensitive file content that was read (keys, profiles) is evicted from RAM.
+# This does NOT affect locked memory (mlock'd key material in thl-keyguard).
+ExecStart=/bin/sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'

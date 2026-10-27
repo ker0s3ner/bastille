@@ -1,0 +1,35 @@
+# WireGuard VPN template for THL
+# Copy this to /etc/wireguard/wg0.conf and fill in your credentials.
+# The nftables kill-switch enforces that no traffic leaves outside wg0,
+# so this config MUST be filled in before networking is available.
+#
+# wg-quick will inject the DNS= line into systemd-resolved,
+# overriding the fallback resolvers in resolved.conf.d/thl-dns.conf.
+
+[Interface]
+# Your WireGuard private key (generate with: wg genkey)
+PrivateKey = REPLACE_WITH_YOUR_PRIVATE_KEY
+
+# Your assigned VPN address
+Address = 10.x.x.x/32
+
+# VPN provider's internal DNS — forced on all interfaces by resolved
+DNS = 10.x.x.1
+
+# Kill-switch: bring down routing cleanly on disconnect
+# (nftables handles the hard kill-switch; these handle route cleanup)
+PostUp   = nft -f /etc/nftables/thl-killswitch.nft
+PreDown  = nft flush ruleset
+
+[Peer]
+# Your VPN provider's public key
+PublicKey = REPLACE_WITH_SERVER_PUBLIC_KEY
+
+# VPN server endpoint
+Endpoint = vpn.example.com:51820
+
+# Route all traffic through the VPN
+AllowedIPs = 0.0.0.0/0, ::/0
+
+# Keep the tunnel alive through NAT
+PersistentKeepalive = 25

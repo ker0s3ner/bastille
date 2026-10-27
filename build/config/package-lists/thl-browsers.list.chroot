@@ -1,0 +1,4 @@
+# Browsers on the allowlist.
+# Only these packages are installed; AppArmor then enforces
+# that no other browser binary can exec.
+firefox-esr

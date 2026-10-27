@@ -1,0 +1,266 @@
+#!/usr/bin/env python3
+"""
+thl-vision-guard — focus loss lock + privacy screen daemon
+
+Two behaviours:
+  1. FOCUS GUARD: if no face is detected for LOCK_AFTER_SECS seconds,
+     invoke thl-lock (evicts LUKS RAM half, then swaylock).
+
+  2. PRIVACY SCREEN: if 2+ faces are detected, immediately dim the
+     display to PRIVACY_DIM_BRIGHTNESS. Restore when back to 1 face.
+
+Requires: python3-opencv (cv2), python3-numpy
+Camera: uses the first available /dev/videoN device.
+
+Configuration: /etc/thl/vision-guard.conf
+  lock_after_secs = 10        seconds of no face before lock
+  privacy_faces   = 2         face count that triggers dim
+  privacy_dim     = 0.1       brightness fraction when dimmed (0.0-1.0)
+  camera_device   = 0         /dev/video index
+  check_interval  = 0.5       seconds between camera samples
+  debug           = false     write face-count to stdout
+
+The daemon holds the camera only while the session is unlocked.
+It releases it when swaylock is running.
+"""
+
+import sys
+import os
+import time
+import subprocess
+import signal
+import logging
+import configparser
+import syslog
+
+# OpenCV — optional dependency, daemon exits gracefully if missing
+try:
+    import cv2
+    import numpy as np
+    HAS_CV2 = True
+except ImportError:
+    HAS_CV2 = False
+
+CONFIG_PATH = "/etc/thl/vision-guard.conf"
+FACE_CASCADE = "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml"
+LOCK_CMD     = ["/usr/local/sbin/thl-lock"]
+SWAYMSG      = "/usr/bin/swaymsg"
+
+# ── Config ─────────────────────────────────────────────────────────────────
+
+def load_config():
+    cfg = {
+        "lock_after_secs": 10,
+        "privacy_faces":   2,
+        "privacy_dim":     0.1,
+        "camera_device":   0,
+        "check_interval":  0.5,
+        "debug":           False,
+    }
+    if os.path.exists(CONFIG_PATH):
+        p = configparser.ConfigParser()
+        p.read(CONFIG_PATH)
+        s = p.get("vision-guard", None) or {}
+        if "lock_after_secs" in s: cfg["lock_after_secs"] = float(s["lock_after_secs"])
+        if "privacy_faces"   in s: cfg["privacy_faces"]   = int(s["privacy_faces"])
+        if "privacy_dim"     in s: cfg["privacy_dim"]     = float(s["privacy_dim"])
+        if "camera_device"   in s: cfg["camera_device"]   = int(s["camera_device"])
+        if "check_interval"  in s: cfg["check_interval"]  = float(s["check_interval"])
+        if "debug"           in s: cfg["debug"]           = s["debug"].lower() == "true"
+    return cfg
+
+# ── Display brightness control ─────────────────────────────────────────────
+
+def get_brightness_path():
+    """Return sysfs backlight path or None."""
+    for base in ["/sys/class/backlight", "/sys/class/leds"]:
+        if not os.path.isdir(base):
+            continue
+        for d in os.listdir(base):
+            p = os.path.join(base, d, "brightness")
+            if os.path.exists(p):
+                return os.path.join(base, d)
+    return None
+
+class BrightnessController:
+    def __init__(self):
+        self.path = get_brightness_path()
+        self.original = None
+        self.dimmed = False
+
+    def _read(self):
+        if not self.path:
+            return None
+        try:
+            with open(os.path.join(self.path, "brightness")) as f:
+                return int(f.read().strip())
+        except OSError:
+            return None
+
+    def _read_max(self):
+        if not self.path:
+            return None
+        try:
+            with open(os.path.join(self.path, "max_brightness")) as f:
+                return int(f.read().strip())
+        except OSError:
+            return None
+
+    def _write(self, value):
+        if not self.path:
+            return
+        try:
+            with open(os.path.join(self.path, "brightness"), "w") as f:
+                f.write(str(int(value)))
+        except OSError:
+            pass
+
+    def dim(self, fraction):
+        if self.dimmed:
+            return
+        cur = self._read()
+        mx  = self._read_max()
+        if cur is None or mx is None:
+            return
+        self.original = cur
+        self.dimmed = True
+        self._write(max(1, int(mx * fraction)))
+
+    def restore(self):
+        if not self.dimmed or self.original is None:
+            return
+        self._write(self.original)
+        self.dimmed = False
+
+# ── Screen lock state ──────────────────────────────────────────────────────
+
+def is_screen_locked():
+    """Return True if swaylock is running (screen is locked)."""
+    try:
+        r = subprocess.run(["pgrep", "-x", "swaylock"], capture_output=True)
+        return r.returncode == 0
+    except OSError:
+        return False
+
+# ── Main loop ─────────────────────────────────────────────────────────────
+
+def run():
+    syslog.openlog("thl-vision-guard", syslog.LOG_PID, syslog.LOG_DAEMON)
+
+    if not HAS_CV2:
+        syslog.syslog(syslog.LOG_ERR,
+                      "python3-opencv not installed — vision guard disabled")
+        sys.exit(1)
+
+    cascade_path = FACE_CASCADE
+    if not os.path.exists(cascade_path):
+        # Try alternate paths
+        for alt in ["/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml",
+                    "/usr/local/share/opencv4/haarcascades/haarcascade_frontalface_default.xml"]:
+            if os.path.exists(alt):
+                cascade_path = alt
+                break
+        else:
+            syslog.syslog(syslog.LOG_ERR,
+                          f"Haar cascade not found at {FACE_CASCADE} — vision guard disabled")
+            sys.exit(1)
+
+    cfg = load_config()
+    face_cascade = cv2.CascadeClassifier(cascade_path)
+    brightness   = BrightnessController()
+
+    no_face_since = None
+    lock_triggered = False
+    running = True
+
+    def on_signal(sig, frame):
+        nonlocal running
+        running = False
+        brightness.restore()
+
+    signal.signal(signal.SIGTERM, on_signal)
+    signal.signal(signal.SIGINT,  on_signal)
+
+    syslog.syslog(syslog.LOG_INFO,
+                  f"vision guard started: lock_after={cfg['lock_after_secs']}s "
+                  f"privacy_faces={cfg['privacy_faces']}")
+
+    cap = None
+
+    while running:
+        # Don't run camera while screen is locked
+        if is_screen_locked():
+            if cap is not None:
+                cap.release()
+                cap = None
+            no_face_since = None
+            lock_triggered = False
+            brightness.restore()
+            time.sleep(1.0)
+            continue
+
+        # Open camera if not already open
+        if cap is None:
+            cap = cv2.VideoCapture(cfg["camera_device"])
+            if not cap.isOpened():
+                syslog.syslog(syslog.LOG_WARNING,
+                              f"Could not open /dev/video{cfg['camera_device']}")
+                time.sleep(5.0)
+                continue
+            # Low resolution for speed — we only need face detection
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH,  320)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+            cap.set(cv2.CAP_PROP_FPS,          5)
+
+        ret, frame = cap.read()
+        if not ret:
+            cap.release()
+            cap = None
+            time.sleep(1.0)
+            continue
+
+        gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(60, 60),
+        )
+        face_count = len(faces)
+
+        if cfg["debug"]:
+            print(f"faces={face_count}", flush=True)
+
+        now = time.monotonic()
+
+        # ── Privacy screen ──────────────────────────────────────────────
+        if face_count >= cfg["privacy_faces"]:
+            brightness.dim(cfg["privacy_dim"])
+        else:
+            brightness.restore()
+
+        # ── Focus guard ─────────────────────────────────────────────────
+        if face_count == 0:
+            if no_face_since is None:
+                no_face_since = now
+            elif not lock_triggered:
+                elapsed = now - no_face_since
+                if elapsed >= cfg["lock_after_secs"]:
+                    syslog.syslog(syslog.LOG_INFO,
+                                  f"No face for {elapsed:.1f}s — locking screen")
+                    brightness.restore()
+                    subprocess.Popen(LOCK_CMD)
+                    lock_triggered = True
+        else:
+            no_face_since  = None
+            lock_triggered = False
+
+        time.sleep(cfg["check_interval"])
+
+    if cap is not None:
+        cap.release()
+    brightness.restore()
+    syslog.syslog(syslog.LOG_INFO, "vision guard stopped")
+
+if __name__ == "__main__":
+    run()

@@ -1,0 +1,78 @@
+# Base system
+systemd
+dbus
+udev
+sudo
+util-linux
+locales
+tzdata
+ca-certificates
+curl
+wget
+
+# Wayland desktop
+sway
+swaybar
+swayidle
+swaylock
+waybar
+wofi
+foot
+xwayland
+xdg-desktop-portal-wlr
+
+# Network & VPN
+wireguard-tools
+network-manager
+network-manager-gnome
+iproute2
+nftables
+i2pd
+openresolv
+resolvconf
+
+# DNS
+systemd-resolved
+
+# Display manager
+greetd
+greetd-tuigreet
+
+# PGP
+gnupg2
+gnupg-agent
+kleopatra
+pinentry-gnome3
+gpgconf
+
+# Security
+apparmor
+apparmor-utils
+apparmor-profiles
+apparmor-profiles-extra
+libpam-runtime
+libpam-modules
+
+# File system & encryption
+cryptsetup
+cryptsetup-initramfs
+lvm2
+e2fsprogs
+dosfstools
+
+# Utilities
+bash
+zsh
+nano
+vim
+less
+file
+htop
+lsof
+strace
+fwupd
+
+# Fonts & theming
+fonts-dejavu-core
+fonts-liberation
+adwaita-icon-theme

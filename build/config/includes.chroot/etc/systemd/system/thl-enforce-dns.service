@@ -1,0 +1,18 @@
+# Hardens DNS after resolved starts:
+# - Points /etc/resolv.conf at the resolved stub
+# - Blocks any NetworkManager or dhclient from overwriting it
+[Unit]
+Description=THL DNS enforcement (immutable resolv.conf)
+After=systemd-resolved.service
+Wants=systemd-resolved.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c ' \
+  ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf && \
+  chattr +i /etc/resolv.conf || true'
+ExecStop=/bin/sh -c 'chattr -i /etc/resolv.conf || true'
+
+[Install]
+WantedBy=multi-user.target

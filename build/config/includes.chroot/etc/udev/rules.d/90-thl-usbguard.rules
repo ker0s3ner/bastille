@@ -1,0 +1,18 @@
+# THL USB lockdown (pre-USBGuard layer)
+#
+# USBGuard handles the policy-level allow/deny. These udev rules provide
+# a lower-level backstop: any USB device that connects while the screen is
+# locked is immediately authorised=0 (blocked) before the kernel even
+# tries to bind a driver.
+#
+# HOW IT WORKS
+#   When a USB device connects, udev fires. We check whether the screen
+#   is locked (swaylock is running) or the session is not active. If so,
+#   we set authorized=0 which stops the device from enumerating.
+#
+# TO ALLOW A NEW DEVICE
+#   Unlock the screen first, then plug in the device.
+#   Or: echo 1 > /sys/bus/usb/devices/<bus>-<port>/authorized  (as root)
+
+ACTION=="add", SUBSYSTEM=="usb", \
+  RUN+="/usr/local/sbin/thl-usb-authorize %k"

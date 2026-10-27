@@ -1,0 +1,269 @@
+#!/bin/bash
+# thl-profile — profile manager for Tinfoil Hat Linux
+#
+# Each profile is an independent LUKS2-encrypted container file stored at
+# /var/lib/thl/profiles/<name>.img. Mounting a profile creates a loop device,
+# opens the LUKS layer, and bind-mounts the inner filesystem over ~/.thl/<name>.
+#
+# Profiles share the base OS but have completely separate:
+#   - Home directory (encrypted per-profile)
+#   - GPG keyring
+#   - WireGuard key (optional, can share the system VPN)
+#   - Browser profiles (Firefox uses a separate profile dir)
+#   - i2pd destinations
+#
+# COMMANDS
+#   thl-profile list
+#   thl-profile create <name> [--size <MiB>]
+#   thl-profile switch <name>
+#   thl-profile lock   <name>          (unmount, close LUKS)
+#   thl-profile lock-all
+#   thl-profile delete <name>          (shred the container file)
+#   thl-profile status
+#
+# Profiles directory: /var/lib/thl/profiles/
+# Mount point base:   /run/thl/profiles/
+
+set -euo pipefail
+
+PROFILES_DIR="/var/lib/thl/profiles"
+MOUNT_BASE="/run/thl/profiles"
+LINK_DIR="/home/user/.thl"
+ACTIVE_FILE="/run/thl/active-profile"
+
+die() { echo "Error: $*" >&2; exit 1; }
+require_root() { [ "$(id -u)" -eq 0 ] || die "must run as root"; }
+
+# ── Helpers ────────────────────────────────────────────────────────────────
+
+profile_img()  { echo "$PROFILES_DIR/$1.img"; }
+profile_map()  { echo "thl-profile-$1"; }
+profile_mnt()  { echo "$MOUNT_BASE/$1"; }
+
+is_mounted() {
+    mountpoint -q "$(profile_mnt "$1")" 2>/dev/null
+}
+
+is_open() {
+    [ -b "/dev/mapper/$(profile_map "$1")" ]
+}
+
+# ── create ─────────────────────────────────────────────────────────────────
+
+cmd_create() {
+    local name="$1"
+    local size_mib="${2:-512}"
+
+    require_root
+    [[ "$name" =~ ^[a-zA-Z0-9_-]+$ ]] || die "invalid profile name (a-z A-Z 0-9 _ -)"
+
+    local img; img="$(profile_img "$name")"
+    [ -f "$img" ] && die "profile '$name' already exists"
+
+    mkdir -p "$PROFILES_DIR"
+    chmod 700 "$PROFILES_DIR"
+
+    echo "Creating ${size_mib}MiB profile container for '$name'..."
+
+    # Create sparse image file
+    dd if=/dev/urandom of="$img" bs=1M count="$size_mib" status=progress
+    chmod 600 "$img"
+
+    # Create LUKS2 container (Argon2id KDF)
+    echo "Formatting LUKS2 container (Argon2id)..."
+    cryptsetup luksFormat \
+        --type luks2 \
+        --pbkdf argon2id \
+        --pbkdf-memory 1048576 \
+        --pbkdf-time 4 \
+        --cipher aes-xts-plain64 \
+        --key-size 512 \
+        --hash sha512 \
+        --label "thl-profile-$name" \
+        "$img"
+
+    # Open and format
+    local map; map="$(profile_map "$name")"
+    cryptsetup luksOpen --type luks2 "$img" "$map"
+
+    mkfs.ext4 -L "thl-$name" "/dev/mapper/$map"
+
+    # Create inner structure
+    local mnt; mnt="$(profile_mnt "$name")"
+    mkdir -p "$mnt"
+    mount "/dev/mapper/$map" "$mnt"
+    mkdir -p "$mnt"/{home,gnupg,firefox,i2pd,ssh}
+    chmod 700 "$mnt"/gnupg "$mnt"/ssh
+    chown -R 1000:1000 "$mnt"/{home,gnupg,firefox,i2pd,ssh} 2>/dev/null || true
+
+    umount "$mnt"
+    cryptsetup luksClose "$map"
+
+    echo "Profile '$name' created at $img"
+    echo "Activate with: thl-profile switch $name"
+}
+
+# ── switch ─────────────────────────────────────────────────────────────────
+
+cmd_switch() {
+    local name="$1"
+    require_root
+
+    local img; img="$(profile_img "$name")"
+    [ -f "$img" ] || die "profile '$name' not found"
+
+    local map; map="$(profile_map "$name")"
+    local mnt; mnt="$(profile_mnt "$name")"
+
+    if ! is_open "$name"; then
+        echo "Opening LUKS container..."
+        cryptsetup luksOpen --type luks2 "$img" "$map"
+    fi
+
+    if ! is_mounted "$name"; then
+        mkdir -p "$mnt"
+        mount "/dev/mapper/$map" "$mnt"
+    fi
+
+    # Symlink profile dirs into the user's home
+    local user_home="/home/user"
+    mkdir -p "$LINK_DIR"
+
+    for d in gnupg firefox i2pd; do
+        local target="$mnt/$d"
+        local link="$LINK_DIR/$d"
+        [ -d "$target" ] || mkdir -p "$target"
+        rm -f "$link"
+        ln -s "$target" "$link"
+    done
+
+    # Point GNUPGHOME
+    export GNUPGHOME="$mnt/gnupg"
+    echo "export GNUPGHOME=$mnt/gnupg" > /run/thl/profile-env
+    echo "export THL_PROFILE=$name"    >> /run/thl/profile-env
+    echo "export THL_PROFILE_MNT=$mnt" >> /run/thl/profile-env
+
+    echo "$name" > "$ACTIVE_FILE"
+
+    echo "Switched to profile '$name' (mounted at $mnt)"
+    echo "Source /run/thl/profile-env in your shell or logout/in to apply."
+    syslog -t thl-profile "switched to profile '$name'"
+}
+
+# ── lock ───────────────────────────────────────────────────────────────────
+
+cmd_lock() {
+    local name="$1"
+    require_root
+
+    local map; map="$(profile_map "$name")"
+    local mnt; mnt="$(profile_mnt "$name")"
+
+    if is_mounted "$name"; then
+        # Remove symlinks pointing into this profile
+        for d in gnupg firefox i2pd; do
+            local link="$LINK_DIR/$d"
+            [ -L "$link" ] && rm -f "$link"
+        done
+
+        umount "$mnt" && echo "Unmounted $mnt"
+    fi
+
+    if is_open "$name"; then
+        cryptsetup luksClose "$map" && echo "Closed LUKS mapper for '$name'"
+    fi
+
+    # If this was the active profile, clear it
+    if [ -f "$ACTIVE_FILE" ] && [ "$(cat "$ACTIVE_FILE")" = "$name" ]; then
+        rm -f "$ACTIVE_FILE"
+        rm -f /run/thl/profile-env
+    fi
+
+    echo "Profile '$name' locked."
+}
+
+cmd_lock_all() {
+    require_root
+    for img in "$PROFILES_DIR"/*.img 2>/dev/null; do
+        [ -f "$img" ] || continue
+        name="$(basename "$img" .img)"
+        cmd_lock "$name" 2>/dev/null || true
+    done
+}
+
+# ── delete ─────────────────────────────────────────────────────────────────
+
+cmd_delete() {
+    local name="$1"
+    require_root
+
+    local img; img="$(profile_img "$name")"
+    [ -f "$img" ] || die "profile '$name' not found"
+
+    read -rp "Permanently shred profile '$name'? This cannot be undone. [yes/N]: " ans
+    [[ "$ans" == "yes" ]] || { echo "Aborted."; exit 0; }
+
+    # Lock first
+    cmd_lock "$name" 2>/dev/null || true
+
+    echo "Shredding $img..."
+    shred -u -z -n 3 "$img"
+    echo "Profile '$name' destroyed."
+}
+
+# ── list / status ───────────────────────────────────────────────────────────
+
+cmd_list() {
+    echo "Profiles in $PROFILES_DIR:"
+    local active=""
+    [ -f "$ACTIVE_FILE" ] && active="$(cat "$ACTIVE_FILE")"
+    shopt -s nullglob
+    for img in "$PROFILES_DIR"/*.img; do
+        local name; name="$(basename "$img" .img)"
+        local size; size="$(du -h "$img" 2>/dev/null | cut -f1)"
+        local state="locked"
+        is_open    "$name" && state="open"
+        is_mounted "$name" && state="mounted"
+        local marker=""
+        [ "$name" = "$active" ] && marker=" ← active"
+        printf "  %-20s  %-8s  %s%s\n" "$name" "$size" "$state" "$marker"
+    done
+}
+
+cmd_status() {
+    if [ -f "$ACTIVE_FILE" ]; then
+        echo "Active profile: $(cat "$ACTIVE_FILE")"
+    else
+        echo "No active profile"
+    fi
+    cmd_list
+}
+
+# ── dispatch ───────────────────────────────────────────────────────────────
+
+CMD="${1:-help}"
+shift || true
+
+case "$CMD" in
+    create)   cmd_create "${1:-}" "${2:-512}" ;;
+    switch)   cmd_switch "${1:?Usage: thl-profile switch <name>}" ;;
+    lock)     cmd_lock   "${1:?Usage: thl-profile lock <name>}" ;;
+    lock-all) cmd_lock_all ;;
+    delete)   cmd_delete "${1:?Usage: thl-profile delete <name>}" ;;
+    list)     cmd_list ;;
+    status)   cmd_status ;;
+    help|--help|-h)
+        cat <<'EOF'
+Usage: thl-profile <command> [args]
+
+  list                      list all profiles
+  status                    show active profile and all states
+  create <name> [--size N]  create new encrypted profile (default 512MiB)
+  switch <name>             mount and activate a profile
+  lock   <name>             unmount and close a profile
+  lock-all                  lock every profile
+  delete <name>             shred and permanently destroy a profile
+EOF
+        ;;
+    *) die "Unknown command '$CMD'. Run: thl-profile help" ;;
+esac

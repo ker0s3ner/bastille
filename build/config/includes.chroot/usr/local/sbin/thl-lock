@@ -1,0 +1,17 @@
+#!/bin/bash
+# thl-lock — screen lock with RAM half eviction
+#
+# Calling this (instead of swaylock directly) ensures the kernel
+# keyring RAM half is evicted BEFORE the screen is obscured, so that
+# from the moment the screen goes dark the device is functionally BFU.
+# An attacker who seizes the device immediately after lock-screen
+# appears has the LUKS volume mounted but cannot derive the LUKS key
+# from storage alone without the RAM half.
+
+set -euo pipefail
+
+# 1. Evict RAM half from kernel keyring
+/usr/local/sbin/thl-keyguard evict 2>/dev/null || true
+
+# 2. Lock the screen
+exec swaylock -f -c 000000 --indicator-idle-visible

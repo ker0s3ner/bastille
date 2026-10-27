@@ -1,0 +1,45 @@
+#!/bin/bash
+# thl-usb-pin-input — PIN entry terminal helper for thl-usb-pin-dialog
+# Runs inside a foot terminal window.
+
+set -euo pipefail
+
+TIMEOUT="${THL_PIN_TIMEOUT:-30}"
+PIN_FILE="${THL_PIN_FILE:-/dev/null}"
+DEVICE="${THL_USB_DEVICE:-unknown}"
+
+# Turn off echo
+stty -echo 2>/dev/null || true
+
+clear
+echo
+echo "  ┌─────────────────────────────────────────┐"
+echo "  │         THL USB Device Gate             │"
+echo "  │                                         │"
+printf "  │  Device: %-31s│\n" "$DEVICE"
+echo "  │                                         │"
+echo "  │  A new USB device was just connected.   │"
+echo "  │  Enter your USB device PIN to allow it. │"
+echo "  │  Press Ctrl+C to deny.                  │"
+echo "  │                                         │"
+printf "  │  Timeout: %-3s seconds                  │\n" "$TIMEOUT"
+echo "  └─────────────────────────────────────────┘"
+echo
+
+# Read with timeout
+PIN=""
+if read -r -s -t "$TIMEOUT" -p "  USB PIN: " PIN 2>/dev/null; then
+    echo
+else
+    echo
+    echo "  [Timed out — device denied]"
+    exit 0
+fi
+
+# Write PIN to tmpfile (thl-usb-pin-dialog reads and unlinks it)
+printf '%s' "$PIN" > "$PIN_FILE"
+
+# Zero PIN from memory
+PIN=""
+echo "  [PIN submitted — evaluating...]"
+sleep 0.5

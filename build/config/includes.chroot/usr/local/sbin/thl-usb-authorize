@@ -1,0 +1,28 @@
+#!/bin/bash
+# thl-usb-authorize — called by udev when a USB device is plugged in.
+# If the screen is locked or no active session exists, block the device.
+
+DEVICE="$1"
+SYS_PATH="/sys/bus/usb/devices/$DEVICE"
+
+# Determine if any session is unlocked
+LOCKED=1
+for seat in $(loginctl list-seats --no-legend | awk '{print $1}'); do
+    state=$(loginctl show-seat "$seat" --property=ActiveSession --value 2>/dev/null)
+    if [ -n "$state" ]; then
+        idle=$(loginctl show-session "$state" --property=IdleHint --value 2>/dev/null)
+        locked=$(loginctl show-session "$state" --property=LockedHint --value 2>/dev/null)
+        if [ "$locked" = "no" ] && [ "$idle" = "no" ]; then
+            LOCKED=0
+            break
+        fi
+    fi
+done
+
+if [ "$LOCKED" = "1" ]; then
+    logger -t thl-usb "Blocking USB device $DEVICE (session locked)"
+    echo 0 > "$SYS_PATH/authorized" 2>/dev/null || true
+else
+    logger -t thl-usb "Allowing USB device $DEVICE (session active)"
+    # USBGuard policy handles further allow/deny
+fi

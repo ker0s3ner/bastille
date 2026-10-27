@@ -1,0 +1,44 @@
+#!/bin/sh
+# Install the THL browser allowlist AppArmor profile.
+# Any browser binary NOT listed in /etc/thl/browser-allowlist is denied exec.
+set -e
+
+mkdir -p /etc/thl
+
+# Write the canonical allowlist (matches what was installed via package-lists)
+cat > /etc/thl/browser-allowlist <<'EOF'
+/usr/lib/firefox-esr/firefox-esr
+/usr/bin/firefox-esr
+EOF
+
+# Write the AppArmor profile that enforces it
+cat > /etc/apparmor.d/thl-browser-allowlist <<'PROFILE'
+# THL browser allowlist — generated at build time
+# Deny exec of any browser-like binary not on the allowlist.
+# Add new browsers by appending to /etc/thl/browser-allowlist and
+# running: apparmor_parser -r /etc/apparmor.d/thl-browser-allowlist
+
+abi <abi/3.0>,
+include <tunables/global>
+
+profile thl-browser-allowlist flags=(attach_disconnected) {
+  include <abstractions/base>
+
+  # Allow the listed browsers to run normally
+  /usr/lib/firefox-esr/firefox-esr  Px,
+  /usr/bin/firefox-esr              Px,
+
+  # Block known browser binaries not on the list
+  deny /usr/bin/chromium            x,
+  deny /usr/bin/google-chrome*      x,
+  deny /opt/google/chrome*          x,
+  deny /usr/bin/brave-browser*      x,
+  deny /usr/bin/vivaldi*            x,
+  deny /usr/bin/opera*              x,
+  deny /usr/bin/epiphany*           x,
+  deny /usr/bin/midori*             x,
+  deny /usr/bin/falkon*             x,
+}
+PROFILE
+
+apparmor_parser -r /etc/apparmor.d/thl-browser-allowlist || true
