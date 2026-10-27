@@ -17,8 +17,9 @@ systemctl enable i2pd.service
 # AppArmor
 systemctl enable apparmor.service
 
-# Greeter (Wayland login)
-systemctl enable greetd.service
+# Display manager (GNOME)
+systemctl enable gdm.service
+systemctl disable greetd.service || true
 
 # RAM wipe on shutdown
 systemctl enable bastille-ramwipe.service

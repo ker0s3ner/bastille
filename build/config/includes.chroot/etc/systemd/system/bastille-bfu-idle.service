@@ -1,17 +1,20 @@
 [Unit]
 Description=Auto-poweroff to BFU state after idle
-After=graphical.target
+After=graphical-session.target
 
 [Service]
 Type=simple
 User=user
-Environment=WAYLAND_DISPLAY=wayland-1
-# 10 minutes locked → screen off; 30 minutes idle → evict keys and power off
-ExecStart=/usr/bin/swayidle -w \
-    timeout 600  '/usr/local/sbin/thl-lock' \
-    timeout 1800 '/usr/local/sbin/bastille-bfu-poweroff' \
-    before-sleep '/usr/local/sbin/thl-lock'
+# Watch for GNOME idle signal via xprintidle; power off after 30 minutes idle
+ExecStart=/bin/sh -c '\
+    while true; do \
+        idle=$(xprintidle 2>/dev/null || echo 0); \
+        if [ "$idle" -ge 1800000 ]; then \
+            /usr/local/sbin/bastille-bfu-poweroff; \
+        fi; \
+        sleep 60; \
+    done'
 Restart=on-failure
 
 [Install]
-WantedBy=graphical.target
+WantedBy=graphical-session.target

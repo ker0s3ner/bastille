@@ -10,18 +10,30 @@ ca-certificates
 curl
 wget
 
-# Wayland desktop
-sway
-swayidle
-swaylock
-waybar
-wofi
-foot
-xdg-desktop-portal-wlr
+# GNOME desktop
+gnome-core
+gnome-session
+gnome-shell
+gnome-control-center
+gnome-terminal
+gnome-keyring
+nautilus
+gdm3
+
+# GPU drivers — Intel (older ThinkPads) and AMD
+xserver-xorg-video-intel
+xserver-xorg-video-amdgpu
+xserver-xorg-video-radeon
+firmware-amd-graphics
+intel-microcode
+firmware-misc-nonfree
+mesa-vulkan-drivers
+libgl1-mesa-dri
 
 # Network & VPN
 wireguard-tools
 network-manager
+network-manager-gnome
 iproute2
 nftables
 i2pd
@@ -29,9 +41,6 @@ resolvconf
 
 # DNS
 systemd-resolved
-
-# Display manager
-greetd
 
 # PGP
 gnupg2
@@ -58,7 +67,7 @@ dosfstools
 # User app installs (no sudo required — user-level Flatpak installs only)
 flatpak
 xdg-desktop-portal
-xdg-desktop-portal-gtk
+xdg-desktop-portal-gnome
 
 # Utilities
 bash
@@ -72,6 +81,7 @@ lsof
 strace
 fwupd
 secure-delete
+xprintidle
 
 # Fonts & theming
 fonts-dejavu-core
