@@ -1,0 +1,89 @@
+#!/bin/sh
+# bastille-dsm — Device Stress Mode
+#
+# Triggered by a designated duress PIN. Runs silently in a detached
+# child (via pam_thl_duress), so the caller sees no visible difference
+# from a normal login for several seconds.
+#
+# Execution order:
+#   1. Evict all key material from RAM (same as BFU poweroff)
+#   2. Overwrite UEFI SPI flash with random data (permanent brick)
+#   3. Corrupt NVMe firmware via crypto-erase (storage unrecoverable)
+#   4. Power off
+#
+# Recovery requires a physical SPI flash programmer to restore the BIOS.
+# There is no software path back.
+#
+# This script must run as root. It is called by the PAM duress module
+# which runs the action in a double-forked daemon process.
+
+set -e
+
+LOG="/run/thl/dsm.log"
+mkdir -p /run/thl
+exec >> "$LOG" 2>&1
+
+echo "[DSM] $(date -Iseconds) Device Stress Mode triggered"
+
+# ── Step 1: Evict key material ────────────────────────────────────────
+echo "[DSM] Evicting key material"
+
+cryptsetup luksClose bastille-data 2>/dev/null || true
+ip link delete wg0 2>/dev/null || true
+find /run/thl -type f ! -name dsm.log -exec shred -uz {} \; 2>/dev/null || true
+keyctl clear @u 2>/dev/null || true
+keyctl clear @s 2>/dev/null || true
+
+# ── Step 2: Brick UEFI via SPI flash overwrite ────────────────────────
+# flashrom writes to the SPI flash chip that holds the BIOS/UEFI.
+# Overwriting with /dev/urandom produces an unbootable image.
+# No software recovery is possible — requires physical SPI programmer.
+echo "[DSM] Overwriting UEFI SPI flash (this bricks the device)"
+
+FLASH_SIZE=$(flashrom -p internal 2>/dev/null \
+    | grep -oP '(?<=\()[0-9]+ kB(?=\))' \
+    | head -1 \
+    | grep -oP '[0-9]+' || echo "")
+
+if [ -n "$FLASH_SIZE" ]; then
+    # Write random data the size of the flash chip
+    FLASH_BYTES=$(( FLASH_SIZE * 1024 ))
+    dd if=/dev/urandom bs=4096 count=$(( FLASH_BYTES / 4096 + 1 )) 2>/dev/null \
+        | head -c "$FLASH_BYTES" > /tmp/dsm_payload
+    flashrom -p internal -w /tmp/dsm_payload --noverify 2>/dev/null || true
+    shred -uz /tmp/dsm_payload 2>/dev/null || true
+    echo "[DSM] SPI flash overwritten"
+else
+    # Fallback: attempt blind write of 16 MB (common BIOS chip size)
+    dd if=/dev/urandom bs=1M count=16 2>/dev/null > /tmp/dsm_payload || true
+    flashrom -p internal -w /tmp/dsm_payload --noverify 2>/dev/null || true
+    shred -uz /tmp/dsm_payload 2>/dev/null || true
+    echo "[DSM] SPI flash overwrite attempted (fallback)"
+fi
+
+# ── Step 3: Destroy NVMe storage ─────────────────────────────────────
+# nvme format with ses=2 issues a cryptographic erase — destroys the
+# internal encryption key, making all data permanently unrecoverable
+# even with physical access to the NAND chips.
+echo "[DSM] Issuing NVMe crypto-erase on all NVMe devices"
+
+for dev in /dev/nvme[0-9]; do
+    [ -e "$dev" ] || continue
+    nvme format "$dev" --ses=2 --force 2>/dev/null \
+        || nvme format "$dev" --ses=1 --force 2>/dev/null \
+        || true
+    echo "[DSM] NVMe erased: $dev"
+done
+
+# Also handle SATA SSDs with ATA secure erase
+for dev in /dev/sd[a-z]; do
+    [ -e "$dev" ] || continue
+    hdparm --security-set-pass NULL "$dev" 2>/dev/null || true
+    hdparm --security-erase NULL "$dev" 2>/dev/null || true
+    echo "[DSM] SATA erased: $dev"
+done
+
+# ── Step 4: Power off ─────────────────────────────────────────────────
+echo "[DSM] Powering off"
+sync
+systemctl poweroff --force --force

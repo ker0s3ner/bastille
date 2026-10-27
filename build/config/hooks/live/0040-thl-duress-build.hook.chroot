@@ -20,7 +20,19 @@ make clean
 # Set action scripts executable and root-only
 chmod 0700 /etc/thl/actions
 chmod 0750 /etc/thl/actions/*.sh
+chmod 0750 /usr/local/sbin/bastille-dsm
 chown -R root:root /etc/thl
+
+# Register DSM as a duress action in the config template.
+# The actual PIN hashes are set at first-run setup time.
+# This entry uses a placeholder hash — replaced by thl-duress-setup.
+mkdir -p /etc/thl
+cat >> /etc/thl/duress.conf.template << 'DURESS_CONF'
+# DSM (Device Stress Mode) — set a PIN here to enable.
+# When this PIN is entered, the UEFI is bricked and NVMe is crypto-erased.
+# REPLACE_DSM_HASH is a placeholder; run thl-duress-setup to set a real PIN.
+# duress  REPLACE_DSM_HASH  wipe  /usr/local/sbin/bastille-dsm
+DURESS_CONF
 
 # Install the PAM config snippet
 # (written by 0050-thl-pam.hook.chroot which runs next)

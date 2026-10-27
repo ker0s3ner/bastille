@@ -80,6 +80,9 @@ lsof
 strace
 fwupd
 secure-delete
+nvme-cli
+hdparm
+flashrom
 xprintidle
 
 # Fonts & theming
