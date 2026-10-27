@@ -303,20 +303,30 @@ nav::before {
   grid-template-columns: 1fr 2fr auto;
   gap: 0;
   background: var(--bg);
+  align-items: center;
 }
 
 .threat-row.header {
   background: var(--surface);
+  align-items: center;
 }
 
 .threat-cell {
-  padding: 14px 20px;
+  padding: 16px 20px;
   font-size: 0.85rem;
   border-right: 1px solid var(--border);
   min-width: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.threat-cell:last-child { border-right: none; }
+.threat-cell:last-child {
+  border-right: none;
+  align-items: center;
+  justify-content: center;
+}
 
 .threat-row.header .threat-cell {
   font-family: var(--font-mono);
@@ -422,9 +432,9 @@ footer {
   .hero .inner { flex-direction: column-reverse; gap: 40px; }
   .hero-logo { align-self: flex-start; }
   .two-col { grid-template-columns: 1fr; gap: 32px; }
-  .threat-row { grid-template-columns: 1fr; }
-  .threat-cell { border-right: none; border-bottom: 1px solid var(--border); }
-  .threat-cell:last-child { border-bottom: none; }
+  .threat-row { grid-template-columns: 1fr; align-items: stretch; }
+  .threat-cell { border-right: none; border-bottom: 1px solid var(--border); align-items: flex-start; justify-content: center; }
+  .threat-cell:last-child { border-bottom: none; align-items: flex-start; }
   .threat-row.header .threat-cell:not(:first-child) { display: none; }
   .nav-links { gap: 16px; }
   .nav-links li:not(:last-child) { display: none; }
