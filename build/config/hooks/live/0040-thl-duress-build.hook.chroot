@@ -2,15 +2,8 @@
 # Build and install pam_thl_duress.so + DSM helpers inside the chroot.
 set -e
 
-# Dependencies must be installed before this hook runs.
-apt-get install -y --no-install-recommends \
-    libpam0g-dev \
-    libsodium-dev \
-    gcc \
-    make \
-    dpkg-dev
-
 # Build pam_thl_duress.so
+# (gcc, make, libpam0g-dev, libsodium-dev, dpkg-dev pre-installed via package list)
 cd /usr/local/src/thl-duress
 make
 make install DESTDIR=

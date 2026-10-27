@@ -48,6 +48,14 @@ kleopatra
 pinentry-gnome3
 gpgconf
 
+# Build tools (needed by hooks 0040 to compile pam_thl_duress + bastille-dsm-config)
+gcc
+make
+libpam0g-dev
+libsodium-dev
+libkeyutils-dev
+dpkg-dev
+
 # Security
 apparmor
 apparmor-utils
