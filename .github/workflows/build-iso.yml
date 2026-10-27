@@ -12,6 +12,9 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    container:
+      image: debian:bookworm
+      options: --privileged
 
     steps:
       - name: Checkout
@@ -19,8 +22,8 @@ jobs:
 
       - name: Install live-build
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
             live-build \
             debootstrap \
             debian-archive-keyring \
@@ -31,14 +34,14 @@ jobs:
             grub-pc-bin \
             grub-efi-amd64-bin \
             mtools \
-            dosfstools
-          # Install Debian's debootstrap scripts (Ubuntu's debootstrap lacks /debian script)
-          sudo ln -sf /usr/share/debootstrap/scripts/bookworm /usr/share/debootstrap/scripts/debian || true
+            dosfstools \
+            git \
+            ca-certificates
 
       - name: Build ISO
         run: |
           set -o pipefail
-          sudo bash build.sh 2>&1 | tee /tmp/bastille-build.log
+          bash build.sh 2>&1 | tee /tmp/bastille-build.log
 
       - name: Check ISO exists
         run: |
