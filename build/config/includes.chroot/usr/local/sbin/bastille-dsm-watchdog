@@ -1,0 +1,64 @@
+#!/bin/sh
+# bastille-dsm-watchdog — monitor for active device attacks and trigger DSM prompt
+#
+# Attack triggers:
+#   1. SSH brute-force: >= 5 failed auth attempts in 60 seconds
+#   2. Forensic USB tool: syslog CRIT from thl-usb-inspector (Cellebrite etc.)
+#
+# On trigger: launches bastille-dsm-prompt as a fullscreen fake lock screen.
+# Only one prompt runs at a time.
+#
+# Reads /etc/thl/dsm.enabled — exits immediately if DSM is not activated.
+
+DSM_ENABLED_FILE="/etc/thl/dsm.enabled"
+DSM_PIN_FILE="/etc/thl/dsm.pin"
+DSM_PROMPT="/usr/local/sbin/bastille-dsm-prompt"
+PROMPT_PID_FILE="/run/thl/dsm-prompt.pid"
+
+if [ ! -f "$DSM_ENABLED_FILE" ] || [ ! -f "$DSM_PIN_FILE" ]; then
+    exit 0
+fi
+
+mkdir -p /run/thl
+
+_show_prompt() {
+    # Only one instance at a time
+    if [ -f "$PROMPT_PID_FILE" ]; then
+        pid=$(cat "$PROMPT_PID_FILE")
+        kill -0 "$pid" 2>/dev/null && return
+    fi
+    "$DSM_PROMPT" &
+    echo $! > "$PROMPT_PID_FILE"
+}
+
+# ── SSH brute-force detector ──────────────────────────────────────────────
+_watch_ssh() {
+    journalctl -f -u ssh.service -u sshd.service \
+               --output=cat --no-hostname 2>/dev/null | \
+    awk '
+    /Failed (password|publickey|none) for/ {
+        attempts++
+        if (attempts == 1) start = systime()
+        if (attempts >= 5 && systime() - start <= 60) {
+            print "SSH_ATTACK"
+            attempts = 0
+        }
+        if (systime() - start > 60) { attempts = 1; start = systime() }
+    }
+    ' | while read -r _event; do
+        _show_prompt
+    done
+}
+
+# ── Forensic USB tool detector ────────────────────────────────────────────
+_watch_usb() {
+    journalctl -f --output=cat --no-hostname 2>/dev/null | \
+    grep --line-buffered "thl-usb.*FORENSIC\|thl-usb.*CRIT\|thl-usb.*cellebrite\|thl-usb.*MSAB" | \
+    while read -r _line; do
+        _show_prompt
+    done
+}
+
+_watch_ssh &
+_watch_usb &
+wait

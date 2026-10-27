@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+"""
+bastille-dsm-prompt — Fake GNOME lock screen shown during active device attacks.
+
+Triggered automatically when bastille-dsm-watchdog detects:
+  - Cellebrite / forensic USB tool connected
+  - SSH brute-force above threshold
+
+The prompt looks like a standard GNOME lock screen.
+The owner verbally gives the DSM PIN to the examiner.
+When the examiner types it in and presses Enter, bastille-dsm fires.
+
+Wrong PINs show "Incorrect PIN" with a constant-time delay and clear.
+Nothing distinguishes this from a real lock screen.
+
+The DSM PIN hash is read from /etc/thl/dsm.pin (argon2id, root-only).
+Requires: python3-gi, gir1.2-gtk-3.0, libsodium (via ctypes)
+"""
+
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gtk, Gdk, GLib, Pango
+import ctypes
+import ctypes.util
+import subprocess
+import os
+import sys
+import time
+import threading
+
+DSM_PIN_FILE   = "/etc/thl/dsm.pin"
+DSM_SCRIPT     = "/usr/local/sbin/bastille-dsm"
+WRONG_DELAY_S  = 1.2   # constant-time delay on wrong PIN
+
+
+def _load_sodium():
+    name = ctypes.util.find_library("sodium")
+    if not name:
+        return None
+    try:
+        return ctypes.CDLL(name)
+    except OSError:
+        return None
+
+
+def verify_pin(entered: str) -> bool:
+    """Constant-time argon2id hash verification via libsodium."""
+    if not os.path.exists(DSM_PIN_FILE):
+        return False
+    try:
+        with open(DSM_PIN_FILE, "r") as f:
+            stored_hash = f.read().strip().encode()
+    except PermissionError:
+        return False
+
+    lib = _load_sodium()
+    if lib is None:
+        return False
+
+    lib.crypto_pwhash_str_verify.restype  = ctypes.c_int
+    lib.crypto_pwhash_str_verify.argtypes = [
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+        ctypes.c_ulonglong,
+    ]
+    pwd = entered.encode()
+    result = lib.crypto_pwhash_str_verify(stored_hash, pwd, len(pwd))
+    return result == 0
+
+
+def fire_dsm():
+    """Execute DSM in a subprocess and do not return."""
+    subprocess.Popen([DSM_SCRIPT], close_fds=True)
+    # Give DSM a moment to start, then hard-exit this process
+    time.sleep(0.5)
+    os._exit(0)
+
+
+class LockScreen(Gtk.Window):
+
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self._locked = False   # True while processing a wrong attempt
+
+        self.set_title("Locked")
+        self.fullscreen()
+        self.set_keep_above(True)
+        self.set_decorated(False)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+
+        # Prevent close / minimize
+        self.connect("delete-event", lambda *_: True)
+        self.connect("key-press-event", self._on_key)
+
+        # Grab keyboard and pointer so nothing can bypass the screen
+        self.connect("realize", self._grab_input)
+
+        screen = self.get_screen()
+        self.set_default_size(screen.get_width(), screen.get_height())
+
+        self._build_ui()
+        self.show_all()
+
+    def _grab_input(self, *_):
+        display = Gdk.Display.get_default()
+        seat    = display.get_default_seat()
+        seat.grab(
+            self.get_window(),
+            Gdk.SeatCapabilities.ALL,
+            False, None, None, None, None
+        )
+
+    def _build_ui(self):
+        # Dark background matching GNOME lock screen
+        self.override_background_color(
+            Gtk.StateFlags.NORMAL,
+            Gdk.RGBA(0.11, 0.11, 0.14, 1.0)
+        )
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        box.set_valign(Gtk.Align.CENTER)
+        box.set_halign(Gtk.Align.CENTER)
+        self.add(box)
+
+        # Clock
+        self._clock_label = Gtk.Label()
+        self._clock_label.override_color(
+            Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 0.9)
+        )
+        self._clock_label.override_font(
+            Pango.FontDescription("Sans 64")
+        )
+        box.pack_start(self._clock_label, False, False, 0)
+        self._update_clock()
+        GLib.timeout_add_seconds(1, self._update_clock)
+
+        # User icon placeholder (circle)
+        avatar = Gtk.DrawingArea()
+        avatar.set_size_request(80, 80)
+        avatar.connect("draw", self._draw_avatar)
+        box.pack_start(avatar, False, False, 0)
+
+        # Username
+        user_label = Gtk.Label(label=os.environ.get("USER", "user"))
+        user_label.override_color(
+            Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 0.85)
+        )
+        user_label.override_font(Pango.FontDescription("Sans 16"))
+        box.pack_start(user_label, False, False, 0)
+
+        # PIN entry (hidden dots like GNOME)
+        pin_frame = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        pin_frame.set_halign(Gtk.Align.CENTER)
+
+        self._pin_entry = Gtk.Entry()
+        self._pin_entry.set_visibility(False)
+        self._pin_entry.set_input_purpose(Gtk.InputPurpose.PIN)
+        self._pin_entry.set_placeholder_text("Enter PIN")
+        self._pin_entry.set_width_chars(20)
+        self._pin_entry.connect("activate", self._on_submit)
+        self._pin_entry.override_background_color(
+            Gtk.StateFlags.NORMAL, Gdk.RGBA(0.18, 0.18, 0.22, 1.0)
+        )
+        self._pin_entry.override_color(
+            Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 0.9)
+        )
+        pin_frame.pack_start(self._pin_entry, False, False, 0)
+
+        box.pack_start(pin_frame, False, False, 0)
+
+        # Status message (shown on wrong attempt)
+        self._status = Gtk.Label(label="")
+        self._status.override_color(
+            Gtk.StateFlags.NORMAL, Gdk.RGBA(0.9, 0.4, 0.4, 1.0)
+        )
+        self._status.override_font(Pango.FontDescription("Sans 12"))
+        box.pack_start(self._status, False, False, 0)
+
+    def _draw_avatar(self, widget, cr):
+        w, h = widget.get_allocated_width(), widget.get_allocated_height()
+        cr.set_source_rgba(0.35, 0.35, 0.42, 1.0)
+        cr.arc(w / 2, h / 2, min(w, h) / 2, 0, 6.2832)
+        cr.fill()
+
+    def _update_clock(self):
+        import datetime
+        now = datetime.datetime.now()
+        self._clock_label.set_text(now.strftime("%H:%M"))
+        return True
+
+    def _on_key(self, widget, event):
+        # Eat all keys except what the entry needs
+        return False
+
+    def _on_submit(self, *_):
+        if self._locked:
+            return
+        pin = self._pin_entry.get_text()
+        self._pin_entry.set_text("")
+
+        def _check():
+            t_start = time.monotonic()
+            ok = verify_pin(pin)
+            elapsed = time.monotonic() - t_start
+            # Constant-time: always spend at least WRONG_DELAY_S
+            remaining = WRONG_DELAY_S - elapsed
+            if remaining > 0:
+                time.sleep(remaining)
+
+            if ok:
+                GLib.idle_add(self._trigger_dsm)
+            else:
+                GLib.idle_add(self._show_wrong)
+
+        self._locked = True
+        threading.Thread(target=_check, daemon=True).start()
+
+    def _trigger_dsm(self):
+        """Called on correct DSM PIN — fire and forget."""
+        self._status.set_text("")
+        self._pin_entry.set_sensitive(False)
+        fire_dsm()
+
+    def _show_wrong(self):
+        self._status.set_text("Incorrect PIN")
+        self._locked = False
+        GLib.timeout_add(2000, lambda: self._status.set_text("") or False)
+
+
+def main():
+    # Must run as root to read DSM_PIN_FILE and execute bastille-dsm
+    if os.geteuid() != 0:
+        sys.exit("bastille-dsm-prompt must run as root")
+
+    if not os.path.exists(DSM_PIN_FILE):
+        sys.exit("DSM not configured — run bastille-dsm-setup first")
+
+    # Set DISPLAY / WAYLAND_DISPLAY from the active graphical session
+    if "DISPLAY" not in os.environ and "WAYLAND_DISPLAY" not in os.environ:
+        # Try to find the active session's display
+        try:
+            result = subprocess.check_output(
+                ["loginctl", "show-session", "--value", "-p", "Display"],
+                text=True
+            ).strip()
+            if result:
+                os.environ["DISPLAY"] = result
+        except Exception:
+            os.environ["DISPLAY"] = ":0"
+
+    Gtk.init([])
+    win = LockScreen()
+    win.connect("destroy", Gtk.main_quit)
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

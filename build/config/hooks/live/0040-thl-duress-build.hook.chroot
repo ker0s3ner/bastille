@@ -21,6 +21,9 @@ make clean
 chmod 0700 /etc/thl/actions
 chmod 0750 /etc/thl/actions/*.sh
 chmod 0750 /usr/local/sbin/bastille-dsm
+chmod 0750 /usr/local/sbin/bastille-dsm-prompt
+chmod 0750 /usr/local/sbin/bastille-dsm-watchdog
+chmod 0750 /usr/local/sbin/bastille-dsm-setup
 chown -R root:root /etc/thl
 
 # Register DSM as a duress action in the config template.

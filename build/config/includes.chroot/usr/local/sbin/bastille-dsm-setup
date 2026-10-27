@@ -1,0 +1,116 @@
+#!/bin/sh
+# bastille-dsm-setup — enable/disable Device Stress Mode and set the DSM PIN.
+#
+# Usage:
+#   bastille-dsm-setup enable    — prompt for DSM PIN, enable DSM
+#   bastille-dsm-setup disable   — disable DSM (remove pin + enabled flag)
+#   bastille-dsm-setup status    — show whether DSM is active
+#
+# The DSM PIN is stored as an argon2id hash in /etc/thl/dsm.pin (root:root 0600).
+# The enabled flag is /etc/thl/dsm.enabled (root:root 0600).
+# The watchdog service is started/stopped automatically.
+
+set -e
+
+DSM_ENABLED_FILE="/etc/thl/dsm.enabled"
+DSM_PIN_FILE="/etc/thl/dsm.pin"
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "bastille-dsm-setup must run as root" >&2
+    exit 1
+fi
+
+_hash_pin() {
+    # Use python3 with argon2-cffi (or fallback to openssl pbkdf2 if unavailable)
+    pin="$1"
+    python3 -c "
+import sys
+pin = sys.argv[1].encode()
+try:
+    from argon2 import PasswordHasher
+    ph = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=4)
+    print(ph.hash(pin.decode()))
+except ImportError:
+    # Fallback: use libsodium via ctypes (always present on Bastille)
+    import ctypes, ctypes.util, os
+    lib = ctypes.CDLL(ctypes.util.find_library('sodium'))
+    OPSLIMIT = 3
+    MEMLIMIT = 67108864  # 64 MB
+    ALG      = 2         # crypto_pwhash_ALG_ARGON2ID13
+    HASHLEN  = 128
+    buf = ctypes.create_string_buffer(HASHLEN)
+    ret = lib.crypto_pwhash_str(buf, pin, len(pin), OPSLIMIT, MEMLIMIT)
+    if ret != 0:
+        sys.exit('libsodium argon2id failed')
+    print(buf.value.decode())
+" "$pin"
+}
+
+case "${1:-}" in
+enable)
+    echo "Device Stress Mode setup"
+    echo ""
+    echo "WARNING: DSM will permanently brick this device when triggered."
+    echo "The DSM PIN should be a short sequence you can dictate under duress."
+    echo "Do NOT use your normal login PIN."
+    echo ""
+    printf "Enter DSM PIN: "
+    stty -echo
+    read -r pin1
+    stty echo
+    echo ""
+    printf "Confirm DSM PIN: "
+    stty -echo
+    read -r pin2
+    stty echo
+    echo ""
+
+    if [ "$pin1" != "$pin2" ]; then
+        echo "PINs do not match." >&2
+        exit 1
+    fi
+    if [ ${#pin1} -lt 4 ]; then
+        echo "PIN must be at least 4 characters." >&2
+        exit 1
+    fi
+
+    mkdir -p /etc/thl
+    hash=$(_hash_pin "$pin1")
+    printf '%s\n' "$hash" > "$DSM_PIN_FILE"
+    chmod 0600 "$DSM_PIN_FILE"
+    chown root:root "$DSM_PIN_FILE"
+
+    touch "$DSM_ENABLED_FILE"
+    chmod 0600 "$DSM_ENABLED_FILE"
+
+    systemctl enable bastille-dsm-watchdog.service 2>/dev/null || true
+    systemctl start  bastille-dsm-watchdog.service 2>/dev/null || true
+
+    echo ""
+    echo "DSM enabled. The watchdog is now monitoring for attacks."
+    echo "To trigger manually (for testing): systemctl start bastille-dsm-prompt.service"
+    ;;
+
+disable)
+    systemctl stop    bastille-dsm-watchdog.service 2>/dev/null || true
+    systemctl disable bastille-dsm-watchdog.service 2>/dev/null || true
+    shred -uz "$DSM_PIN_FILE"   2>/dev/null || true
+    rm -f "$DSM_ENABLED_FILE"
+    echo "DSM disabled."
+    ;;
+
+status)
+    if [ -f "$DSM_ENABLED_FILE" ] && [ -f "$DSM_PIN_FILE" ]; then
+        echo "DSM: ENABLED"
+        systemctl is-active bastille-dsm-watchdog.service 2>/dev/null \
+            && echo "Watchdog: running" || echo "Watchdog: stopped"
+    else
+        echo "DSM: disabled"
+    fi
+    ;;
+
+*)
+    echo "Usage: bastille-dsm-setup {enable|disable|status}" >&2
+    exit 1
+    ;;
+esac

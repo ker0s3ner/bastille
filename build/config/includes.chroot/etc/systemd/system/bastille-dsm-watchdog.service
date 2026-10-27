@@ -1,0 +1,13 @@
+[Unit]
+Description=Bastille DSM attack watchdog
+After=network.target
+ConditionPathExists=/etc/thl/dsm.enabled
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/bastille-dsm-watchdog
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
