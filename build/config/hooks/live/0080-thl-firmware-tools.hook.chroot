@@ -2,18 +2,6 @@
 # Install firmware tools and sub-ring-0 hardening scripts inside the chroot.
 set -e
 
-# ── Packages ───────────────────────────────────────────────────────────────
-
-apt-get install -y --no-install-recommends \
-    flashrom \
-    dmidecode \
-    python3 \
-    python3-pip \
-    wget \
-    msr-tools \
-    iproute2 \
-    util-linux
-
 # ── Install firmware scripts ───────────────────────────────────────────────
 
 install -m 0755 /usr/local/src/thl-firmware/thl-me-neutralize.sh \

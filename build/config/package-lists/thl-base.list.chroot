@@ -48,13 +48,30 @@ kleopatra
 pinentry-gnome3
 gpgconf
 
-# Build tools (needed by hooks 0040 to compile pam_thl_duress + bastille-dsm-config)
+# Build tools (needed by hooks to compile C binaries — must be pre-installed, DNS unavailable in hooks)
 gcc
 make
 libpam0g-dev
 libsodium-dev
 libkeyutils-dev
+libncurses-dev
+libpthread-stubs0-dev
 dpkg-dev
+
+# Hook 0070 — USBGuard
+usbguard
+
+# Hook 0080 — firmware tools
+dmidecode
+msr-tools
+python3-pip
+
+# Hook 0090 — new features
+python3-opencv
+python3-numpy
+libnotify-bin
+live-boot
+live-boot-initramfs-tools
 
 # Security
 apparmor

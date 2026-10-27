@@ -1,1 +1,12 @@
 thl-source/
+build/.build/
+build/build.log
+build/cache/
+build/chroot/
+build/config/binary
+build/config/bootstrap
+build/config/chroot
+build/config/common
+build/config/source
+output/*.iso
+output/*.sha256

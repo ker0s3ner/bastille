@@ -2,13 +2,6 @@
 # Build thl-keyguard and gpggrid inside the chroot.
 set -e
 
-apt-get install -y --no-install-recommends \
-    libsodium-dev \
-    libkeyutils-dev \
-    libncurses-dev \
-    gcc \
-    make
-
 # thl-keyguard
 cd /usr/local/src/thl-keyguard
 make && make install DESTDIR=

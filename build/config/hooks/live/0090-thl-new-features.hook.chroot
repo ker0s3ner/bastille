@@ -2,22 +2,6 @@
 # Wire all new features into the chroot image.
 set -e
 
-# ── Packages ───────────────────────────────────────────────────────────────
-
-apt-get install -y --no-install-recommends \
-    python3 \
-    python3-opencv \
-    python3-numpy \
-    libnotify-bin \
-    parted \
-    cryptsetup \
-    live-boot \
-    live-boot-initramfs-tools \
-    iproute2 \
-    wireguard-tools \
-    libsodium-dev \
-    libpthread-stubs0-dev \
-    gcc
 
 # ── Build USB inspector ────────────────────────────────────────────────────
 

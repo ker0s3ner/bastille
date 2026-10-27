@@ -1,0 +1,73 @@
+name: Build Bastille ISO
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create a GitHub Release with the ISO'
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install live-build
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            live-build \
+            debootstrap \
+            squashfs-tools \
+            xorriso \
+            isolinux \
+            syslinux-common \
+            grub-pc-bin \
+            grub-efi-amd64-bin \
+            mtools \
+            dosfstools
+
+      - name: Build ISO
+        run: |
+          cd build
+          sudo lb build 2>&1 | tee /tmp/bastille-build.log
+          echo "Exit code: $?"
+
+      - name: Check ISO exists
+        run: |
+          ls -lh build/live-image-amd64.hybrid.iso
+          sha256sum build/live-image-amd64.hybrid.iso > build/bastille.iso.sha256
+          cat build/bastille.iso.sha256
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bastille-iso
+          path: |
+            build/live-image-amd64.hybrid.iso
+            build/bastille.iso.sha256
+          retention-days: 7
+
+      - name: Upload build log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: /tmp/bastille-build.log
+          retention-days: 3
+
+      - name: Create Release
+        if: inputs.release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Bastille Build ${{ github.run_number }}
+          draft: true
+          files: |
+            build/live-image-amd64.hybrid.iso
+            build/bastille.iso.sha256

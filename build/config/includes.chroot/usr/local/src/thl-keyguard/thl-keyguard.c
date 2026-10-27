@@ -144,22 +144,14 @@ static int keystore_write(const char *path, const keystore_t *ks)
     FILE *f = fopen(path, "w");
     if (!f) { perror("fopen keystore"); return -1; }
 
-    /* Encode binary fields as hex for readability / portability */
-    char *argon_salt_hex   = sodium_bin2hex(NULL, 0, ks->argon_salt,   sizeof(ks->argon_salt));
-    char *enc_nonce_hex    = sodium_bin2hex(NULL, 0, ks->enc_storage_nonce, sizeof(ks->enc_storage_nonce));
-    char *enc_storage_hex  = sodium_bin2hex(NULL, 0, ks->enc_storage,  sizeof(ks->enc_storage));
-    char *binding_hex      = sodium_bin2hex(NULL, 0, ks->binding,      sizeof(ks->binding));
-
-    /* sodium_bin2hex returns NULL on alloc failure — use stack buffers instead */
-    char abuf[sizeof(ks->argon_salt)   * 2 + 1];
+    char abuf[sizeof(ks->argon_salt)        * 2 + 1];
     char nbuf[sizeof(ks->enc_storage_nonce) * 2 + 1];
-    char ebuf[sizeof(ks->enc_storage)  * 2 + 1];
-    char bbuf[sizeof(ks->binding)      * 2 + 1];
-    sodium_bin2hex(abuf, sizeof(abuf), ks->argon_salt,       sizeof(ks->argon_salt));
-    sodium_bin2hex(nbuf, sizeof(nbuf), ks->enc_storage_nonce, sizeof(ks->enc_storage_nonce));
-    sodium_bin2hex(ebuf, sizeof(ebuf), ks->enc_storage,      sizeof(ks->enc_storage));
-    sodium_bin2hex(bbuf, sizeof(bbuf), ks->binding,          sizeof(ks->binding));
-    (void)argon_salt_hex; (void)enc_nonce_hex; (void)enc_storage_hex; (void)binding_hex;
+    char ebuf[sizeof(ks->enc_storage)       * 2 + 1];
+    char bbuf[sizeof(ks->binding)           * 2 + 1];
+    sodium_bin2hex(abuf, sizeof(abuf), ks->argon_salt,            sizeof(ks->argon_salt));
+    sodium_bin2hex(nbuf, sizeof(nbuf), ks->enc_storage_nonce,     sizeof(ks->enc_storage_nonce));
+    sodium_bin2hex(ebuf, sizeof(ebuf), ks->enc_storage,           sizeof(ks->enc_storage));
+    sodium_bin2hex(bbuf, sizeof(bbuf), ks->binding,               sizeof(ks->binding));
 
     fprintf(f,
         "version: %d\n"

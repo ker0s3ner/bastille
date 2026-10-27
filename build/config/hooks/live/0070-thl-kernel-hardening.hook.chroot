@@ -2,9 +2,6 @@
 # Apply kernel hardening configuration inside the chroot.
 set -e
 
-# Install USBGuard
-apt-get install -y --no-install-recommends usbguard
-
 # Enable USBGuard
 systemctl enable usbguard.service
 

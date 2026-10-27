@@ -184,10 +184,13 @@ static int load_config(pin_config_t *cfg)
         else
             continue;
 
-        strncpy(e->hash, hash_str, MAX_HASH_LEN - 1);
+        memcpy(e->hash, hash_str, MAX_HASH_LEN - 1);
+        e->hash[MAX_HASH_LEN - 1] = '\0';
         e->action = parse_action(action_str);
-        if (n >= 4)
-            strncpy(e->action_arg, arg_str, MAX_ARG_LEN - 1);
+        if (n >= 4) {
+            memcpy(e->action_arg, arg_str, MAX_ARG_LEN - 1);
+            e->action_arg[MAX_ARG_LEN - 1] = '\0';
+        }
 
         cfg->count++;
     }
