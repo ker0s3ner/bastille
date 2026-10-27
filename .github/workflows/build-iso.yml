@@ -33,16 +33,13 @@ jobs:
             dosfstools
 
       - name: Build ISO
-        run: |
-          cd build
-          sudo lb build 2>&1 | tee /tmp/bastille-build.log
-          echo "Exit code: $?"
+        run: sudo bash build.sh 2>&1 | tee /tmp/bastille-build.log
 
       - name: Check ISO exists
         run: |
           ls -lh build/live-image-amd64.hybrid.iso
-          sha256sum build/live-image-amd64.hybrid.iso > build/bastille.iso.sha256
-          cat build/bastille.iso.sha256
+          sha256sum build/live-image-amd64.hybrid.iso > bastille.iso.sha256
+          cat bastille.iso.sha256
 
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
@@ -50,7 +47,7 @@ jobs:
           name: bastille-iso
           path: |
             build/live-image-amd64.hybrid.iso
-            build/bastille.iso.sha256
+            bastille.iso.sha256
           retention-days: 7
 
       - name: Upload build log (always)
