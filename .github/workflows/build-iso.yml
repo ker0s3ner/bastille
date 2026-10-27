@@ -24,6 +24,7 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -y --no-install-recommends \
+            bash \
             live-build \
             debootstrap \
             debian-archive-keyring \
@@ -39,9 +40,8 @@ jobs:
             ca-certificates
 
       - name: Build ISO
-        run: |
-          set -o pipefail
-          bash build.sh 2>&1 | tee /tmp/bastille-build.log
+        shell: bash
+        run: bash build.sh 2>&1 | tee /tmp/bastille-build.log || { tail -20 /tmp/bastille-build.log; exit 1; }
 
       - name: Check ISO exists
         run: |
