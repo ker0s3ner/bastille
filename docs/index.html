@@ -560,7 +560,7 @@ footer {
       <div class="col-item">
         <p class="col-item-label">Network</p>
         <p class="col-item-title">VPN kill-switch + HTTPS enforcement</p>
-        <p>All traffic is routed through WireGuard. nftables drops everything if the tunnel is down. Plain-HTTP connections are rejected at the firewall. DNS is locked to the system resolver; apps cannot bypass it.</p>
+        <p>All traffic is routed through WireGuard. nftables drops everything if the tunnel is down. Plain-HTTP connections are rejected at the firewall. DNS is locked to the system stub resolver. Note: browsers with built-in DoH (DNS-over-HTTPS) can bypass a resolver lock — disable DoH in browser settings or push a browser policy.</p>
       </div>
       <div class="col-item">
         <p class="col-item-label">Storage</p>
@@ -570,22 +570,24 @@ footer {
       <div class="col-item">
         <p class="col-item-label">Access</p>
         <p class="col-item-title">Duress PINs with decoy profiles</p>
-        <p>Up to three PINs: normal login, decoy login (opens a clean profile, appears genuine), and full-wipe (overwrites key material and powers off without flushing disk). PIN verification is constant-time.</p>
+        <p>Up to three PINs: normal login, decoy login (opens a sanitised profile that is hard to distinguish from genuine at the PAM layer, though a forensic examiner may still detect a second profile exists), and full-wipe (overwrites key material and powers off without flushing disk). PIN verification is constant-time.</p>
+        <p style="font-size:0.82rem;color:var(--danger);margin-top:8px;">⚠ Legal note: in some jurisdictions, using a wipe PIN in response to a lawful demand may constitute destruction of evidence. Know your local law before enabling this feature.</p>
       </div>
       <div class="col-item">
         <p class="col-item-label">USB</p>
         <p class="col-item-title">Forensic tool detection and counter-response</p>
-        <p>A resident daemon matches connected USB devices against a database of forensic tool VID:PID signatures (Cellebrite, MSAB, Qualcomm EDL, MediaTek BROM). On match: de-authorise, evict LUKS keys, shred key material, re-authorise. Any unrecognised HID device emitting more than 40 events per 100 ms is treated as a BadUSB injection attack and blocked.</p>
+        <p>A resident daemon blocks unrecognised HID devices emitting more than 40 events per 100 ms — the reliable signal for BadUSB and O.MG cable attacks. On detection: de-authorise, evict LUKS keys, shred key material. VID:PID signature matching for specific forensic tools is also included, but note that VID:PID can be spoofed by a sophisticated attacker and is not a strong boundary on its own.</p>
       </div>
       <div class="col-item">
         <p class="col-item-label">Firmware</p>
         <p class="col-item-title">Sub-ring-0 neutralisation</p>
-        <p>Intel ME is stripped to the HAP bit via <code>me_cleaner</code>. KVM modules are blacklisted at boot. S3 suspend (the SMM attack surface) is disabled. IOMMU is enforced in strict mode. A firmware audit service runs at boot and logs the result.</p>
+        <p>Intel ME is stripped to the HAP bit via <code>me_cleaner</code> where supported. KVM modules are blacklisted at boot. S3 suspend (the SMM attack surface) is disabled. IOMMU is enforced in strict mode. A firmware audit service runs at boot and logs the result.</p>
+        <p style="font-size:0.82rem;color:var(--fg-muted);margin-top:8px;">Requires external SPI flashing. Does not work on machines with Intel Boot Guard; check your hardware before flashing.</p>
       </div>
       <div class="col-item">
         <p class="col-item-label">Physical</p>
-        <p class="col-item-title">Vision and focus guard</p>
-        <p>Camera-based face detection runs at 5 fps. If your face leaves the frame for more than ten seconds, the screen locks. If a second face enters the frame, the screen dims to 5% brightness — without locking, so the session remains live.</p>
+        <p class="col-item-title">Vision and focus guard <span style="font-size:0.7rem;color:var(--fg-dim);font-family:var(--font-mono);letter-spacing:0.06em;text-transform:uppercase;margin-left:6px;">Opt-in</span></p>
+        <p>Camera-based face detection (Haar cascade, 5 fps) provides a best-effort presence check: screen locks if your face leaves the frame for ten seconds; dims to 5% if a second face appears. Disabled by default — an active camera is its own attack surface. Enable in Bastille Settings if you want it.</p>
       </div>
       <div class="col-item">
         <p class="col-item-label">Anonymity</p>
@@ -632,13 +634,13 @@ footer {
       </div>
       <div class="threat-row" role="row">
         <div class="threat-cell" role="cell"><strong>Live forensics (AFU)</strong><p>Cellebrite UFED or equivalent; device powered on and screen locked</p></div>
-        <div class="threat-cell" role="cell">Screen lock evicts RAM key half; IOMMU blocks DMA; USB inspector shreds keys on forensic tool connection</div>
-        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+        <div class="threat-cell" role="cell">Screen lock evicts RAM key half; IOMMU blocks DMA; USB HID-rate monitor shreds keys on suspicious device connection; VID:PID matching is supplementary (spoofable)</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-partial">Reduced</span></div>
       </div>
       <div class="threat-row" role="row">
         <div class="threat-cell" role="cell"><strong>Coerced unlock</strong><p>User forced to provide credentials under duress</p></div>
-        <div class="threat-cell" role="cell">Duress PIN opens decoy profile or triggers full wipe; behaviour is indistinguishable at the PAM layer</div>
-        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+        <div class="threat-cell" role="cell">Duress PIN opens decoy profile or triggers full wipe; hard to distinguish at the PAM layer, though a second profile may be detectable by a forensic examiner</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-partial">Reduced</span></div>
       </div>
       <div class="threat-row" role="row">
         <div class="threat-cell" role="cell"><strong>BadUSB / O.MG cable</strong><p>HID emulation device injecting keystrokes</p></div>
@@ -652,8 +654,8 @@ footer {
       </div>
       <div class="threat-row" role="row">
         <div class="threat-cell" role="cell"><strong>Shoulder surfing</strong><p>Screen observed by a bystander</p></div>
-        <div class="threat-cell" role="cell">Vision guard dims screen to 5% when a second face is detected</div>
-        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+        <div class="threat-cell" role="cell">Vision guard (opt-in) dims screen to 5% when a second face is detected; Haar cascade at 5 fps provides best-effort detection only</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-partial">Reduced</span></div>
       </div>
       <div class="threat-row" role="row">
         <div class="threat-cell" role="cell"><strong>Browser fingerprinting</strong><p>Tracking via browser characteristics</p></div>
@@ -671,9 +673,9 @@ footer {
     <h2 class="section-title">What it's built from.</h2>
 
     <div class="stack-list">
-      <div class="stack-item"><span class="stack-item-role">Base</span><span class="stack-item-name">Debian Bookworm (live-build)</span></div>
-      <div class="stack-item"><span class="stack-item-role">Desktop</span><span class="stack-item-name">Sway / Wayland (no X11)</span></div>
-      <div class="stack-item"><span class="stack-item-role">Login</span><span class="stack-item-name">greetd + tuigreet</span></div>
+      <div class="stack-item"><span class="stack-item-role">Base</span><span class="stack-item-name">Debian Bookworm (live-build) — Trixie migration planned</span></div>
+      <div class="stack-item"><span class="stack-item-role">Desktop</span><span class="stack-item-name">GNOME / Wayland</span></div>
+      <div class="stack-item"><span class="stack-item-role">Login</span><span class="stack-item-name">GDM3 (autologin, dconf-locked)</span></div>
       <div class="stack-item"><span class="stack-item-role">VPN</span><span class="stack-item-name">WireGuard (in-kernel)</span></div>
       <div class="stack-item"><span class="stack-item-role">Firewall</span><span class="stack-item-name">nftables (default DROP)</span></div>
       <div class="stack-item"><span class="stack-item-role">DNS</span><span class="stack-item-name">systemd-resolved (DoT + DNSSEC)</span></div>
