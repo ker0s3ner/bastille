@@ -41,6 +41,7 @@ jobs:
 
       - name: Check ISO exists
         run: |
+          find . -name "*.iso" -o -name "*.img" 2>/dev/null | head -20
           ls -lh build/live-image-amd64.hybrid.iso
           sha256sum build/live-image-amd64.hybrid.iso > bastille.iso.sha256
           cat bastille.iso.sha256
