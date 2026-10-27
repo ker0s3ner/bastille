@@ -16,10 +16,10 @@ lb config noauto \
   --debootstrap-options "--variant=minbase" \
   --compression xz \
   --checksums sha512 \
-  --iso-application "Tinfoil Hat Linux Modern" \
-  --iso-publisher "THL Project" \
-  --iso-volume "THL-MODERN" \
-  --hostname "thl" \
+  --iso-application "Bastille" \
+  --iso-publisher "Bastille Project" \
+  --iso-volume "BASTILLE" \
+  --hostname "bastille" \
   --username "user" \
-  --bootappend-live "boot=live components quiet splash username=user hostname=thl persistence persistence-encryption=luks" \
+  --bootappend-live "boot=live components quiet splash username=user hostname=bastille persistence persistence-encryption=luks" \
   "${@}"

@@ -1,768 +1,704 @@
-<title>Tinfoil Hat Linux</title>
+<title>Bastille</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
 
 <style>
-/* ── Tokens ─────────────────────────────────────────────────────────────── */
-/* Layout: single-column editorial, full-bleed sections, logo anchors hero */
+/* ── Tokens ── dark-first, single theme ──────────────────────────────── */
 :root {
-  --bg:       #0b0d12;
-  --surface:  #12151d;
-  --border:   #1e2435;
-  --fg:       #dde4f0;
-  --muted:    #6b7899;
-  --accent:   #3d8ef0;
-  --accent2:  #1a6fd4;
-  --bar-hi:   #9fb0cc;
-  --bar-mid:  #4a5a78;
-  --bar-lo:   #1e2a3e;
-  --warn:     #e07b3a;
-  --good:     #3dcba0;
-  --mono:     'Space Mono', 'Courier New', monospace;
-  --sans:     'DM Sans', system-ui, sans-serif;
-  --r:        6px;
+  --bg:           #0b0c10;
+  --surface:      #13151e;
+  --border:       #1d2032;
+  --border-hi:    #2d3250;
+  --fg:           #dde3f0;
+  --fg-muted:     #626e90;
+  --fg-dim:       #3d4560;
+  --accent:       #4f8fd4;
+  --accent-dim:   #1e3a5f;
+  --danger:       #c04b3a;
+
+  --font-display: 'Syne', system-ui, sans-serif;
+  --font-body:    'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', 'Courier New', monospace;
+
   color-scheme: dark;
 }
 
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg:      #f0f3fa;
-    --surface: #ffffff;
-    --border:  #d0d8ea;
-    --fg:      #141820;
-    --muted:   #60708e;
-    --accent:  #1a5fcc;
-    --accent2: #0d4aaa;
-    --bar-hi:  #8090b0;
-    --bar-mid: #4a5a78;
-    --bar-lo:  #c8d0e0;
-    color-scheme: light;
-  }
-}
-:root[data-theme="light"] {
-  --bg:      #f0f3fa;
-  --surface: #ffffff;
-  --border:  #d0d8ea;
-  --fg:      #141820;
-  --muted:   #60708e;
-  --accent:  #1a5fcc;
-  --accent2: #0d4aaa;
-  --bar-hi:  #8090b0;
-  --bar-mid: #4a5a78;
-  --bar-lo:  #c8d0e0;
-  color-scheme: light;
-}
-
-/* ── Reset + base ────────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+/* ── Reset & base ──────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--sans);
-  font-size: 16px;
-  line-height: 1.6;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.7;
   -webkit-font-smoothing: antialiased;
-  padding-left:  max(16px, env(safe-area-inset-left,  0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 0;
 }
 
-/* ── Util ─────────────────────────────────────────────────────────────────── */
-.mono   { font-family: var(--mono); }
-.muted  { color: var(--muted); }
-.accent { color: var(--accent); }
-.warn   { color: var(--warn); }
-.good   { color: var(--good); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 
-/* ── Nav ──────────────────────────────────────────────────────────────────── */
-nav {
-  position: sticky; top: env(safe-area-inset-top, 0px);
-  z-index: 20;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-  padding-block: 14px;
-  padding-left:  max(24px, env(safe-area-inset-left,  0px));
+/* ── Layout helpers ──────────────────────────────────────────────────── */
+.inner {
+  max-width: 860px;
+  margin-inline: auto;
+  padding-left:  max(24px, env(safe-area-inset-left, 0px));
   padding-right: max(24px, env(safe-area-inset-right, 0px));
 }
-nav .logo-mark {
-  display: flex; align-items: center; gap: 10px;
-  font-family: var(--mono); font-size: 14px; font-weight: 700;
-  color: var(--fg); text-decoration: none; letter-spacing: .04em;
-}
-nav .logo-mark svg { width: 28px; height: 28px; }
-nav .nav-links { display: flex; gap: 24px; align-items: center; }
-nav .nav-links a {
-  color: var(--muted); text-decoration: none;
-  font-size: 13px; font-family: var(--mono);
-  letter-spacing: .04em; transition: color .15s;
-}
-nav .nav-links a:hover { color: var(--fg); }
-nav .nav-links .cta {
-  color: var(--accent); border: 1px solid var(--accent);
-  padding: 6px 14px; border-radius: var(--r);
-  transition: background .15s, color .15s;
-}
-nav .nav-links .cta:hover { background: var(--accent); color: #fff; }
 
-/* ── Hero ─────────────────────────────────────────────────────────────────── */
-.hero {
-  display: flex; flex-direction: column; align-items: center;
-  text-align: center;
-  padding: 80px 0 64px;
-  gap: 0;
-}
-.hero-logo {
-  width: 180px; height: 180px;
-  margin-bottom: 32px;
-  filter: drop-shadow(0 0 40px color-mix(in srgb, var(--accent) 30%, transparent));
-}
-.hero h1 {
-  font-family: var(--mono);
-  font-size: clamp(2rem, 6vw, 3.5rem);
-  font-weight: 700;
-  letter-spacing: -.02em;
-  line-height: 1.1;
-  text-wrap: balance;
-  max-width: 640px;
-  margin-bottom: 16px;
-}
-.hero h1 em {
-  font-style: normal;
-  color: var(--accent);
-}
-.eyebrow {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: var(--warn);
-  margin-bottom: 16px;
-}
-.hero p {
-  font-size: 1.1rem; color: var(--muted);
-  max-width: 520px; margin: 0 auto 36px;
-  line-height: 1.7;
-}
-.hero-cta {
-  display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
-}
-.btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 12px 24px; border-radius: var(--r);
-  font-family: var(--mono); font-size: 13px; font-weight: 700;
-  letter-spacing: .05em; text-decoration: none;
-  transition: all .15s;
-}
-.btn-primary {
-  background: var(--accent); color: #fff;
-  border: 1px solid var(--accent);
-}
-.btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
-.btn-ghost {
-  background: transparent; color: var(--fg);
-  border: 1px solid var(--border);
-}
-.btn-ghost:hover { border-color: var(--muted); }
-
-/* ── Stat bar ─────────────────────────────────────────────────────────────── */
-.stats {
-  display: flex; justify-content: center; flex-wrap: wrap; gap: 0;
-  border-top: 1px solid var(--border);
+/* ── Nav ─────────────────────────────────────────────────────────────── */
+nav {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 100;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
-  margin: 0 -16px; /* bleed under body padding */
-  padding: 0 max(16px, env(safe-area-inset-left, 0px));
-}
-.stat {
-  flex: 1; min-width: 120px; max-width: 200px;
-  text-align: center; padding: 24px 16px;
-  border-right: 1px solid var(--border);
-}
-.stat:last-child { border-right: none; }
-.stat-n {
-  font-family: var(--mono); font-size: 2rem; font-weight: 700;
-  color: var(--accent); font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-.stat-label {
-  font-size: 11px; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--muted);
-  margin-top: 6px;
 }
 
-/* ── Section wrapper ─────────────────────────────────────────────────────── */
-.section { padding: 72px 0; }
-.section-head {
-  text-align: center; margin-bottom: 48px;
-}
-.section-head h2 {
-  font-family: var(--mono); font-size: clamp(1.4rem, 3.5vw, 2rem);
-  font-weight: 700; letter-spacing: -.01em; text-wrap: balance;
-  margin-bottom: 10px;
-}
-.section-head p {
-  color: var(--muted); font-size: .95rem;
-  max-width: 480px; margin: 0 auto;
+nav::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--bg);
+  z-index: 101;
 }
 
-/* ── Feature grid ────────────────────────────────────────────────────────── */
-.features {
+.nav-inner {
+  max-width: 1100px;
+  margin-inline: auto;
+  padding-inline: max(24px, env(safe-area-inset-left, 0px));
+  padding-block: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--fg);
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.nav-logo:hover { text-decoration: none; }
+
+.nav-logo svg { flex-shrink: 0; }
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--fg-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color 0.15s;
+}
+
+.nav-links a:hover { color: var(--fg); text-decoration: none; }
+
+.nav-cta {
+  font-family: var(--font-mono);
+  font-size: 0.78rem !important;
+  color: var(--accent) !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  padding: 6px 14px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+  transition: border-color 0.15s, background 0.15s !important;
+}
+
+.nav-cta:hover { background: var(--accent-dim); border-color: var(--accent) !important; }
+
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+.hero {
+  padding-block: 96px 80px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hero .inner {
+  display: flex;
+  align-items: center;
+  gap: 64px;
+}
+
+.hero-text { flex: 1; min-width: 0; }
+
+.hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--fg-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 8vw, 5.5rem);
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  text-wrap: balance;
+  margin-bottom: 28px;
+}
+
+.hero-sub {
+  font-size: 1.05rem;
+  color: var(--fg-muted);
+  max-width: 52ch;
+  line-height: 1.65;
+  margin-bottom: 40px;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--fg);
+  background: var(--accent);
+  padding: 11px 22px;
+  border-radius: 4px;
+  transition: opacity 0.15s;
+  text-decoration: none;
+}
+
+.btn-primary:hover { opacity: 0.88; text-decoration: none; }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  border: 1px solid var(--border-hi);
+  padding: 11px 22px;
+  border-radius: 4px;
+  transition: color 0.15s, border-color 0.15s;
+  text-decoration: none;
+}
+
+.btn-secondary:hover { color: var(--fg); border-color: var(--fg-muted); text-decoration: none; }
+
+.hero-logo {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+/* ── Sections ─────────────────────────────────────────────────────────── */
+.section {
+  padding-block: 72px;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 32px;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--fg);
+  text-wrap: balance;
+  margin-bottom: 20px;
+  letter-spacing: -0.01em;
+}
+
+.section-body {
+  max-width: 65ch;
+}
+
+.section-body p {
+  color: var(--fg-muted);
+  margin-bottom: 16px;
+}
+
+.section-body p:last-child { margin-bottom: 0; }
+
+.section-body strong { color: var(--fg); font-weight: 500; }
+
+/* ── Two-col section ──────────────────────────────────────────────────── */
+.two-col {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: 1fr 1fr;
+  gap: 48px 64px;
+  margin-top: 48px;
+}
+
+.col-item {}
+
+.col-item-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  margin-bottom: 8px;
+}
+
+.col-item-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--fg);
+  margin-bottom: 8px;
+}
+
+.col-item p {
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+  line-height: 1.6;
+}
+
+/* ── Threat model table ───────────────────────────────────────────────── */
+.threat-grid {
+  margin-top: 40px;
+  display: grid;
   gap: 1px;
   background: var(--border);
   border: 1px solid var(--border);
-  border-radius: calc(var(--r) + 1px);
+  border-radius: 6px;
   overflow: hidden;
 }
-.feat {
-  background: var(--surface);
-  padding: 28px 26px;
-  display: flex; flex-direction: column; gap: 10px;
-  transition: background .15s;
-}
-.feat:hover { background: color-mix(in srgb, var(--surface) 80%, var(--accent) 4%); }
-.feat-icon {
-  width: 36px; height: 36px;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
-}
-.feat h3 {
-  font-family: var(--mono); font-size: .9rem; font-weight: 700;
-  letter-spacing: .03em;
-}
-.feat p { font-size: .87rem; color: var(--muted); line-height: 1.55; }
-.feat .tag {
-  display: inline-block; font-family: var(--mono); font-size: .7rem;
-  letter-spacing: .08em; text-transform: uppercase;
-  padding: 2px 8px; border-radius: 4px; margin-top: auto;
-  background: color-mix(in srgb, var(--good) 12%, transparent);
-  color: var(--good); border: 1px solid color-mix(in srgb, var(--good) 30%, transparent);
-}
-.feat .tag.warn {
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-  color: var(--warn); border-color: color-mix(in srgb, var(--warn) 30%, transparent);
-}
 
-/* ── Threat model section ────────────────────────────────────────────────── */
-.threat-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
-}
-@media (max-width: 600px) { .threat-grid { grid-template-columns: 1fr; } }
-.threat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r); padding: 24px;
-}
-.threat-card h3 {
-  font-family: var(--mono); font-size: .85rem;
-  font-weight: 700; letter-spacing: .05em;
-  text-transform: uppercase; margin-bottom: 12px;
-  color: var(--warn);
-}
-.threat-card ul {
-  list-style: none; display: flex; flex-direction: column; gap: 8px;
-}
-.threat-card li {
-  font-size: .87rem; color: var(--muted);
-  padding-left: 16px; position: relative;
-}
-.threat-card li::before {
-  content: "→"; position: absolute; left: 0;
-  color: var(--accent); font-family: var(--mono);
-}
-.mitigated { text-decoration: line-through; }
-.mitigated::after {
-  content: " ✓"; color: var(--good); text-decoration: none;
-  font-weight: 700;
-}
-
-/* ── Ring diagram ─────────────────────────────────────────────────────────── */
-.ring-diagram {
-  display: flex; justify-content: center; padding: 32px 0;
-}
-.ring-diagram svg { max-width: 400px; width: 100%; }
-
-/* ── Stack section ────────────────────────────────────────────────────────── */
-.stack-list {
+.threat-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-}
-.stack-item {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 16px 18px;
-  display: flex; flex-direction: column; gap: 4px;
-}
-.stack-item .sname {
-  font-family: var(--mono); font-size: .82rem; font-weight: 700;
-  color: var(--accent);
-}
-.stack-item .sdesc {
-  font-size: .8rem; color: var(--muted);
+  grid-template-columns: 1fr 2fr auto;
+  gap: 0;
+  background: var(--bg);
 }
 
-/* ── Terminal block ───────────────────────────────────────────────────────── */
-.term {
-  background: #080a0f;
+.threat-row.header {
+  background: var(--surface);
+}
+
+.threat-cell {
+  padding: 14px 20px;
+  font-size: 0.85rem;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+
+.threat-cell:last-child { border-right: none; }
+
+.threat-row.header .threat-cell {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.threat-cell strong { color: var(--fg); font-weight: 500; }
+.threat-cell p { color: var(--fg-muted); font-size: 0.83rem; margin-top: 2px; }
+
+.tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.tag-mitigated { background: #0d2e1a; color: #4eaa72; border: 1px solid #1a4d2d; }
+.tag-partial   { background: #2a1e08; color: #c89040; border: 1px solid #4a3510; }
+.tag-scoped    { background: #0d1e30; color: #4a86c4; border: 1px solid #1a3555; }
+
+/* ── Stack list ───────────────────────────────────────────────────────── */
+.stack-list {
+  margin-top: 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1px;
+  background: var(--border);
   border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 24px 28px;
-  font-family: var(--mono); font-size: .85rem; line-height: 1.7;
-  color: #c8d4e8; overflow-x: auto;
+  border-radius: 6px;
+  overflow: hidden;
 }
-.term .prompt { color: var(--accent); }
-.term .comment { color: var(--muted); }
-.term .good-txt { color: var(--good); }
 
-/* ── Footer ───────────────────────────────────────────────────────────────── */
+.stack-item {
+  background: var(--bg);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stack-item-role {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.stack-item-name {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--fg);
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────── */
 footer {
-  border-top: 1px solid var(--border);
-  padding: 40px 0;
-  text-align: center;
+  padding-block: 48px;
+  padding-left:  max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
 }
-footer p { font-size: .85rem; color: var(--muted); line-height: 1.8; }
-footer a { color: var(--accent); text-decoration: none; }
-footer a:hover { text-decoration: underline; }
-.footer-logo { margin-bottom: 16px; display: flex; justify-content: center; }
 
-/* ── Max width container ─────────────────────────────────────────────────── */
-.wrap { max-width: 960px; margin: 0 auto; }
-
-/* ── Scan-line overlay (subtle) ──────────────────────────────────────────── */
-.hero::before {
-  content: "";
-  position: absolute; inset: 0; pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 3px,
-    color-mix(in srgb, var(--bg) 96%, transparent) 3px,
-    color-mix(in srgb, var(--bg) 96%, transparent) 4px
-  );
-  opacity: .25; z-index: 0;
+.footer-inner {
+  max-width: 860px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
 }
-.hero { position: relative; }
-.hero > * { position: relative; z-index: 1; }
 
-@media (max-width: 480px) {
-  .hero { padding: 48px 0 40px; }
-  .hero-logo { width: 140px; height: 140px; }
-  .nav-links .btn-ghost { display: none; }
-  .stat { min-width: 100px; }
+.footer-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+  letter-spacing: 0.03em;
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;
+}
+
+.footer-links a {
+  font-size: 0.82rem;
+  color: var(--fg-dim);
+  transition: color 0.15s;
+}
+
+.footer-links a:hover { color: var(--fg-muted); text-decoration: none; }
+
+/* ── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width: 680px) {
+  .hero .inner { flex-direction: column-reverse; gap: 40px; }
+  .hero-logo { align-self: flex-start; }
+  .two-col { grid-template-columns: 1fr; gap: 32px; }
+  .threat-row { grid-template-columns: 1fr; }
+  .threat-cell { border-right: none; border-bottom: 1px solid var(--border); }
+  .threat-cell:last-child { border-bottom: none; }
+  .threat-row.header .threat-cell:not(:first-child) { display: none; }
+  .nav-links { gap: 16px; }
+  .nav-links li:not(:last-child) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
 }
 </style>
 
-<!-- ── NAV ───────────────────────────────────────────────────────────────── -->
+<!-- ── Nav ──────────────────────────────────────────────────────────────── -->
 <nav>
-  <a class="logo-mark" href="#">
-    <!-- mini Tux behind bars -->
-    <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <!-- body -->
-      <ellipse cx="14" cy="17" rx="8" ry="9" fill="#111"/>
-      <!-- belly -->
-      <ellipse cx="14" cy="18" rx="5" ry="6.5" fill="#f5f0e8"/>
-      <!-- head -->
-      <ellipse cx="14" cy="8" rx="6" ry="6" fill="#111"/>
-      <!-- face white -->
-      <ellipse cx="14" cy="9" rx="4" ry="4" fill="#f5f0e8"/>
-      <!-- beak -->
-      <polygon points="14,10 12,12 16,12" fill="#e07b3a"/>
-      <!-- eyes -->
-      <circle cx="12" cy="8" r="1.2" fill="white"/><circle cx="12.4" cy="8" r=".55" fill="#111"/>
-      <circle cx="16" cy="8" r="1.2" fill="white"/><circle cx="16.4" cy="8" r=".55" fill="#111"/>
-      <!-- feet -->
-      <ellipse cx="11" cy="26" rx="2.5" ry="1.2" fill="#e07b3a"/>
-      <ellipse cx="17" cy="26" rx="2.5" ry="1.2" fill="#e07b3a"/>
-      <!-- bars -->
-      <rect x="4"  y="0" width="2.8" height="28" rx="1.2" fill="url(#bm)" opacity=".9"/>
-      <rect x="10" y="0" width="2.8" height="28" rx="1.2" fill="url(#bm)" opacity=".9"/>
-      <rect x="16" y="0" width="2.8" height="28" rx="1.2" fill="url(#bm)" opacity=".9"/>
-      <rect x="22" y="0" width="2.8" height="28" rx="1.2" fill="url(#bm)" opacity=".9"/>
-      <defs>
-        <linearGradient id="bm" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%"   stop-color="#253450"/>
-          <stop offset="40%"  stop-color="#7a9acc"/>
-          <stop offset="100%" stop-color="#1e2a3e"/>
-        </linearGradient>
-      </defs>
-    </svg>
-    THL
-  </a>
-  <div class="nav-links">
-    <a href="#features">Features</a>
-    <a href="#threat-model">Threat Model</a>
-    <a href="#stack">Stack</a>
-    <a href="https://github.com/ker0s3ner/tinfoil-hat-linux" target="_blank" rel="noopener" class="cta">GitHub →</a>
+  <div class="nav-inner">
+    <a class="nav-logo" href="#">
+      <!-- mini Tux-behind-bars -->
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <ellipse cx="14" cy="16" rx="6" ry="7" fill="#1a1a1a"/>
+        <ellipse cx="14" cy="15.5" rx="4" ry="5" fill="#f5f0e8"/>
+        <circle cx="14" cy="9.5" rx="5" ry="5" fill="#1a1a1a"/>
+        <circle cx="12.2" cy="9" r="1.2" fill="white"/>
+        <circle cx="15.8" cy="9" r="1.2" fill="white"/>
+        <circle cx="12.5" cy="9.2" r="0.55" fill="#1a1a1a"/>
+        <circle cx="16.1" cy="9.2" r="0.55" fill="#1a1a1a"/>
+        <polygon points="14,11 12.8,12 15.2,12" fill="#f0a020"/>
+        <rect x="8" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+        <rect x="11" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+        <rect x="15.5" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+        <rect x="18.5" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+      </svg>
+      Bastille
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#threat-model">Threat model</a></li>
+      <li><a href="#stack">Stack</a></li>
+      <li><a href="https://github.com/ker0s3ner/tinfoil-hat-linux" target="_blank" rel="noopener">Source</a></li>
+      <li><a href="https://github.com/ker0s3ner/tinfoil-hat-linux" target="_blank" rel="noopener" class="nav-cta">GitHub →</a></li>
+    </ul>
   </div>
 </nav>
 
-<!-- ── HERO ──────────────────────────────────────────────────────────────── -->
+<!-- ── Hero ─────────────────────────────────────────────────────────────── -->
 <section class="hero">
-  <!-- Full Tux-behind-bars logo -->
-  <svg class="hero-logo" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="bgGlow" cx="50%" cy="55%" r="50%">
-        <stop offset="0%"   stop-color="#1a2d4e" stop-opacity="1"/>
-        <stop offset="100%" stop-color="#0b0d12"  stop-opacity="1"/>
-      </radialGradient>
-      <linearGradient id="barGrad" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%"   stop-color="#1e2a3e"/>
-        <stop offset="35%"  stop-color="#8aaad4"/>
-        <stop offset="65%"  stop-color="#9fbbd6"/>
-        <stop offset="100%" stop-color="#1a2538"/>
-      </linearGradient>
-      <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"  stop-color="#1a1a1a"/>
-        <stop offset="100%" stop-color="#0a0a0a"/>
-      </linearGradient>
-      <filter id="glow">
-        <feGaussianBlur stdDeviation="4" result="blur"/>
-        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-      <clipPath id="barClip">
-        <rect x="0" y="0" width="180" height="180"/>
-      </clipPath>
-    </defs>
-
-    <!-- background disc -->
-    <circle cx="90" cy="90" r="86" fill="url(#bgGlow)" stroke="#1e2a40" stroke-width="1.5"/>
-
-    <!-- ── Tux ── -->
-    <!-- main body -->
-    <ellipse cx="90" cy="112" rx="44" ry="50" fill="url(#bodyGrad)"/>
-    <!-- belly -->
-    <ellipse cx="90" cy="116" rx="28" ry="36" fill="#f2ede0"/>
-    <!-- head -->
-    <ellipse cx="90" cy="62" rx="34" ry="32" fill="#111"/>
-    <!-- face white -->
-    <ellipse cx="90" cy="66" rx="24" ry="23" fill="#f2ede0"/>
-    <!-- beak top -->
-    <polygon points="90,72 78,82 102,82" fill="#e07b3a"/>
-    <!-- beak bottom -->
-    <polygon points="90,80 79,84 101,84" fill="#c9682a"/>
-    <!-- left eye -->
-    <circle cx="80" cy="58" r="6.5" fill="white"/>
-    <circle cx="81" cy="58" r="3.2" fill="#111"/>
-    <circle cx="79.5" cy="56.5" r="1.2" fill="white"/>
-    <!-- right eye -->
-    <circle cx="100" cy="58" r="6.5" fill="white"/>
-    <circle cx="101" cy="58" r="3.2" fill="#111"/>
-    <circle cx="99.5" cy="56.5" r="1.2" fill="white"/>
-    <!-- left foot -->
-    <ellipse cx="72"  cy="164" rx="14" ry="6" fill="#e07b3a"/>
-    <ellipse cx="66"  cy="164" rx="6"  ry="4" fill="#e07b3a"/>
-    <ellipse cx="78"  cy="166" rx="6"  ry="4" fill="#c9682a"/>
-    <!-- right foot -->
-    <ellipse cx="108" cy="164" rx="14" ry="6" fill="#e07b3a"/>
-    <ellipse cx="102" cy="164" rx="6"  ry="4" fill="#e07b3a"/>
-    <ellipse cx="114" cy="166" rx="6"  ry="4" fill="#c9682a"/>
-    <!-- left wing -->
-    <ellipse cx="50" cy="115" rx="14" ry="28" fill="#0f0f0f" transform="rotate(-8 50 115)"/>
-    <!-- right wing -->
-    <ellipse cx="130" cy="115" rx="14" ry="28" fill="#0f0f0f" transform="rotate(8 130 115)"/>
-
-    <!-- ── Prison bars (in front) ── -->
-    <!-- horizontal crossbars -->
-    <rect x="12" y="38"  width="156" height="7" rx="3.5" fill="#1e2a3e" stroke="#2e3e58" stroke-width=".5"/>
-    <rect x="12" y="140" width="156" height="7" rx="3.5" fill="#1e2a3e" stroke="#2e3e58" stroke-width=".5"/>
-
-    <!-- vertical bars (6 bars) -->
-    <rect x="20"  y="36" width="10" height="116" rx="5" fill="url(#barGrad)"/>
-    <rect x="44"  y="36" width="10" height="116" rx="5" fill="url(#barGrad)"/>
-    <rect x="68"  y="36" width="10" height="116" rx="5" fill="url(#barGrad)"/>
-    <rect x="92"  y="36" width="10" height="116" rx="5" fill="url(#barGrad)"/>
-    <rect x="116" y="36" width="10" height="116" rx="5" fill="url(#barGrad)"/>
-    <rect x="140" y="36" width="10" height="116" rx="5" fill="url(#barGrad)"/>
-
-    <!-- bar highlights (metallic) -->
-    <rect x="22"  y="36" width="3" height="116" rx="1.5" fill="white" opacity=".18"/>
-    <rect x="46"  y="36" width="3" height="116" rx="1.5" fill="white" opacity=".18"/>
-    <rect x="70"  y="36" width="3" height="116" rx="1.5" fill="white" opacity=".18"/>
-    <rect x="94"  y="36" width="3" height="116" rx="1.5" fill="white" opacity=".18"/>
-    <rect x="118" y="36" width="3" height="116" rx="1.5" fill="white" opacity=".18"/>
-    <rect x="142" y="36" width="3" height="116" rx="1.5" fill="white" opacity=".18"/>
-
-    <!-- subtle glow on bars -->
-    <rect x="20"  y="36" width="10" height="116" rx="5" fill="#3d8ef0" opacity=".07"/>
-    <rect x="92"  y="36" width="10" height="116" rx="5" fill="#3d8ef0" opacity=".07"/>
-  </svg>
-
-  <p class="eyebrow">Classified · Hardened · Open Source</p>
-  <h1>Tinfoil Hat<br><em>Linux</em></h1>
-  <p>A privacy-hardened desktop OS modernising the 2002 Shmoo Group original. Wayland-native, VPN-enforced, split-key encrypted — hardened from Ring&nbsp;3 down to Ring&nbsp;−3.</p>
-  <div class="hero-cta">
-    <a href="https://github.com/ker0s3ner/tinfoil-hat-linux" class="btn btn-primary" target="_blank" rel="noopener">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-      View on GitHub
-    </a>
-    <a href="#features" class="btn btn-ghost">Explore Features</a>
-  </div>
-</section>
-
-<!-- ── STATS ──────────────────────────────────────────────────────────────── -->
-<div class="stats wrap">
-  <div class="stat"><div class="stat-n">−3</div><div class="stat-label">Rings hardened</div></div>
-  <div class="stat"><div class="stat-n">9</div><div class="stat-label">Build hooks</div></div>
-  <div class="stat"><div class="stat-n">0</div><div class="stat-label">Cleartext DNS</div></div>
-  <div class="stat"><div class="stat-n">0</div><div class="stat-label">Swap pages</div></div>
-  <div class="stat"><div class="stat-n">AFU</div><div class="stat-label">BFU on lock</div></div>
-</div>
-
-<!-- ── FEATURES ──────────────────────────────────────────────────────────── -->
-<section class="section" id="features">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow" style="margin-bottom:8px">Capabilities</p>
-      <h2>Everything you need.<br>Nothing they can use.</h2>
-      <p>Each feature is designed around a specific adversary capability and removes it.</p>
-    </div>
-
-    <div class="features">
-      <div class="feat">
-        <div class="feat-icon">🔒</div>
-        <h3>Split-Key LUKS2</h3>
-        <p>Disk key split across RAM (kernel logon keyring) and storage. Screen lock evicts the RAM half — device becomes BFU instantly. Argon2id, 1 GB memory cost.</p>
-        <span class="tag">AFU hardened</span>
-      </div>
-      <div class="feat">
-        <div class="feat-icon">🛡</div>
-        <h3>Ring −3 Neutralisation</h3>
-        <p>Intel ME stripped with me_cleaner + HAP bit. AMD PSP surface minimised. Full firmware audit on every boot with PASS/WARN/FAIL output.</p>
-        <span class="tag">Sub-kernel</span>
-      </div>
-      <div class="feat">
-        <div class="feat-icon">📡</div>
-        <h3>VPN Kill-Switch</h3>
-        <p>WireGuard tunnel enforced by nftables default-DROP. All traffic dies if the tunnel drops. DNS locked to systemd-resolved over DoT — no bypass possible.</p>
-        <span class="tag">Always-on</span>
-      </div>
-      <div class="feat">
-        <div class="feat-icon">🔍</div>
-        <h3>HTTPS-Only</h3>
-        <p>nftables drops outbound TCP 80, 8080, 8000. Cleartext HTTP is structurally impossible — not just redirected. Port 443 only, through the VPN.</p>
-        <span class="tag">Enforced</span>
-      </div>
-      <div class="feat">
-        <div class="feat-icon">🚨</div>
-        <h3>Cellebrite Counter</h3>
-        <p>Known forensic tool VID:PIDs trigger immediate USB de-auth, LUKS key eviction, and key-material shred — before Cellebrite gets a valid connection.</p>
-        <span class="tag warn">Active defence</span>
-      </div>
-      <div class="feat">
-        <div class="feat-icon">🦠</div>
-        <h3>O.MG / BadUSB Block</h3>
-        <p>HID rate monitor: &gt;40 key events / 100ms is machine speed, not human. Triggers de-auth and RAM key eviction on detection.</p>
-        <span class="tag warn">Real-time</span>
-      </div>
-      <div class="feat">
-        <div class="feat-icon">🎭</div>
-        <h3>Duress PINs</h3>
-        <p>Separate PAM module. Normal PIN and duress PIN both return PAM_SUCCESS — coercer sees no timing difference. Actions: fake wipe, full wipe, silent, decoy.</p>
-        <span class="tag">Constant-time</span>
-      </div>
-      <div class="feat">
-        <div class="feat-icon">👁</div>
-        <h3>Vision Guard</h3>
-        <p>OpenCV face detection at 5fps. No face for 10 s → lock screen + evict RAM key. Two or more faces → display dims to 5% instantly.</p>
-        <span class="tag">Camera-based</span>
-      </div>
-      <div class="feat">
-        <div class="feat-icon">🌐</div>
-        <h3>I2P Routing</h3>
-        <p>i2pd runs inside the VPN tunnel. Your VPN provider sees encrypted I2P traffic, not I2P destinations. SOCKS5 on 4447, SAM on 7656.</p>
-        <span class="tag">Layered</span>
-      </div>
-      <div class="feat">
-        <div class="feat-icon">🗂</div>
-        <h3>Encrypted Profiles</h3>
-        <p>Per-use-case LUKS2 containers. Switch contexts with a command. Lock one, mount another. GnuPG, Firefox, SSH, and i2pd state are all profile-local.</p>
-        <span class="tag">Isolated</span>
-      </div>
-      <div class="feat">
-        <div class="feat-icon">🔌</div>
-        <h3>USB PIN Gate</h3>
-        <p>Every new USB device is de-authorised on insert. A Wayland PIN dialog must be answered before the device is allowed. Session allowlist prevents repeated prompts.</p>
-        <span class="tag">3-factor</span>
-      </div>
-      <div class="feat">
-        <div class="feat-icon">💾</div>
-        <h3>Live USB + Persistence</h3>
-        <p>Boots ephemeral like Tails. Optional LUKS2-encrypted persistence partition for keys and profiles, created with one command, unlocked automatically on boot.</p>
-        <span class="tag">Optional</span>
+  <div class="inner">
+    <div class="hero-text">
+      <p class="hero-eyebrow">Privacy-hardened desktop Linux</p>
+      <h1 class="hero-title">Bastille</h1>
+      <p class="hero-sub">
+        A Debian-based live OS built for people who need their computer to keep secrets.
+        Forced VPN kill-switch, split-key LUKS2 encryption, duress PINs,
+        I2P routing, and sub-ring-0 firmware hardening — on by default.
+      </p>
+      <div class="hero-actions">
+        <a href="https://github.com/ker0s3ner/tinfoil-hat-linux/releases" target="_blank" rel="noopener" class="btn-primary">
+          Download ISO
+        </a>
+        <a href="https://github.com/ker0s3ner/tinfoil-hat-linux" target="_blank" rel="noopener" class="btn-secondary">
+          View source →
+        </a>
       </div>
     </div>
-  </div>
-</section>
 
-<!-- ── THREAT MODEL ────────────────────────────────────────────────────────── -->
-<section class="section" id="threat-model" style="background: var(--surface); margin: 0 -16px; padding-left: max(16px, env(safe-area-inset-left,0px)); padding-right: max(16px, env(safe-area-inset-right,0px));">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow" style="margin-bottom:8px">Threat Model</p>
-      <h2>Named adversaries.<br>Concrete mitigations.</h2>
-    </div>
-
-    <!-- Ring diagram -->
-    <div class="ring-diagram">
-      <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" font-family="Space Mono, monospace" font-size="11">
-        <!-- Ring 3 (outermost) -->
-        <ellipse cx="200" cy="150" rx="190" ry="140" fill="none" stroke="#1e2a3e" stroke-width="1.5"/>
-        <text x="200" y="20" text-anchor="middle" fill="#6b7899">Ring 3 — Userspace</text>
-        <!-- Ring 0 -->
-        <ellipse cx="200" cy="150" rx="148" ry="108" fill="none" stroke="#253450" stroke-width="1.5"/>
-        <text x="200" y="52" text-anchor="middle" fill="#6b7899">Ring 0 — Kernel</text>
-        <!-- Ring -1 -->
-        <ellipse cx="200" cy="150" rx="110" ry="80" fill="none" stroke="#2a3a58" stroke-width="1.5"/>
-        <text x="200" y="82" text-anchor="middle" fill="#3d8ef0">Ring −1 — Hypervisor ✓</text>
-        <!-- Ring -2 -->
-        <ellipse cx="200" cy="150" rx="75" ry="54" fill="none" stroke="#2e4068" stroke-width="1.5"/>
-        <text x="200" y="108" text-anchor="middle" fill="#3d8ef0">Ring −2 — SMM ✓</text>
-        <!-- Ring -3 -->
-        <ellipse cx="200" cy="150" rx="42" ry="30" fill="#0d1828" stroke="#3d8ef0" stroke-width="1.5"/>
-        <text x="200" y="146" text-anchor="middle" fill="#3d8ef0" font-weight="700">Ring −3</text>
-        <text x="200" y="162" text-anchor="middle" fill="#3d8ef0">ME / PSP ✓</text>
+    <!-- Tux behind bars -->
+    <div class="hero-logo" aria-label="Bastille: Tux behind bars">
+      <svg width="160" height="200" viewBox="0 0 160 200" xmlns="http://www.w3.org/2000/svg">
+        <!-- body -->
+        <ellipse cx="80" cy="130" rx="42" ry="52" fill="#111111"/>
+        <!-- belly -->
+        <ellipse cx="80" cy="128" rx="26" ry="36" fill="#f0ece0"/>
+        <!-- head -->
+        <circle cx="80" cy="68" r="34" fill="#111111"/>
+        <!-- eyes -->
+        <circle cx="68" cy="62" r="8" fill="white"/>
+        <circle cx="92" cy="62" r="8" fill="white"/>
+        <circle cx="70" cy="63" r="3.5" fill="#111111"/>
+        <circle cx="94" cy="63" r="3.5" fill="#111111"/>
+        <circle cx="71" cy="62" r="1.2" fill="white"/>
+        <circle cx="95" cy="62" r="1.2" fill="white"/>
+        <!-- beak -->
+        <polygon points="80,72 73,80 87,80" fill="#f0a020"/>
+        <!-- feet -->
+        <ellipse cx="66" cy="182" rx="12" ry="6" fill="#f0a020"/>
+        <ellipse cx="94" cy="182" rx="12" ry="6" fill="#f0a020"/>
+        <!-- wings -->
+        <ellipse cx="38" cy="128" rx="12" ry="28" fill="#111111" transform="rotate(-10 38 128)"/>
+        <ellipse cx="122" cy="128" rx="12" ry="28" fill="#111111" transform="rotate(10 122 128)"/>
+        <!-- bars -->
+        <rect x="14"  y="0" width="11" height="200" rx="5.5" fill="#4f8fd4"/>
+        <rect x="44"  y="0" width="11" height="200" rx="5.5" fill="#4f8fd4"/>
+        <rect x="95"  y="0" width="11" height="200" rx="5.5" fill="#4f8fd4"/>
+        <rect x="125" y="0" width="11" height="200" rx="5.5" fill="#4f8fd4"/>
+        <!-- crossbars -->
+        <rect x="10" y="28"  width="140" height="8" rx="4" fill="#3a6fa0" opacity="0.6"/>
+        <rect x="10" y="164" width="140" height="8" rx="4" fill="#3a6fa0" opacity="0.6"/>
       </svg>
     </div>
+  </div>
+</section>
 
-    <div class="threat-grid">
-      <div class="threat-card">
-        <h3>Physical access — AFU</h3>
-        <ul>
-          <li class="mitigated">LUKS master key readable from RAM</li>
-          <li class="mitigated">Cellebrite UFED USB acquisition</li>
-          <li class="mitigated">DMA attack via Thunderbolt</li>
-          <li class="mitigated">Memory cold-boot after lock</li>
-          <li class="mitigated">O.MG / HID injection attack</li>
-        </ul>
+<!-- ── About ─────────────────────────────────────────────────────────────── -->
+<section class="section" id="about">
+  <div class="inner">
+    <p class="section-label">About</p>
+    <h2 class="section-title">The OS that doesn't trust the network, the hardware, or you.</h2>
+    <div class="section-body">
+      <p>
+        Bastille is a spiritual successor to the 2002 Shmoo Group <em>Tinfoil Hat Linux</em> floppy distro —
+        updated for a threat landscape that includes hardware-level attacks, forensic extraction tools,
+        and always-on adversarial networks. It runs as a live system off USB, boots entirely to RAM,
+        and leaves nothing on the host machine when you remove the drive.
+      </p>
+      <p>
+        Every design decision assumes the worst case: the network is hostile, the USB port is a weapon,
+        and physical access to the device is a real possibility. Bastille is not a convenience OS.
+        It is built for people who need operational security that holds under pressure.
+      </p>
+      <p>
+        The build is fully reproducible from source using <strong>live-build</strong> on a Debian host.
+        No binary blobs are added after the Debian base. Every configuration file, hook, and
+        compiled component is in the repository.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ──────────────────────────────────────────────────────────── -->
+<section class="section" id="features">
+  <div class="inner">
+    <p class="section-label">Features</p>
+    <h2 class="section-title">Every protection on by default. No manual configuration.</h2>
+
+    <div class="two-col">
+      <div class="col-item">
+        <p class="col-item-label">Network</p>
+        <p class="col-item-title">VPN kill-switch + HTTPS enforcement</p>
+        <p>All traffic is routed through WireGuard. nftables drops everything if the tunnel is down. Plain-HTTP connections are rejected at the firewall. DNS is locked to the system resolver; apps cannot bypass it.</p>
       </div>
-      <div class="threat-card">
-        <h3>Network adversary</h3>
-        <ul>
-          <li class="mitigated">DNS interception / poisoning</li>
-          <li class="mitigated">Traffic analysis (cleartext)</li>
-          <li class="mitigated">Captive portal credential harvest</li>
-          <li class="mitigated">VPN drop → plaintext fallback</li>
-          <li class="mitigated">Browser fingerprinting via HTTP</li>
-        </ul>
+      <div class="col-item">
+        <p class="col-item-label">Storage</p>
+        <p class="col-item-title">Split-key LUKS2 encryption</p>
+        <p>The LUKS master key is split: one half lives in the kernel's logon keyring (write-once, not readable from userspace), the other on the encrypted partition. Lock the screen and the device becomes Before-First-Unlock.</p>
       </div>
-      <div class="threat-card">
-        <h3>Coercion</h3>
-        <ul>
-          <li class="mitigated">Forced PIN disclosure (duress)</li>
-          <li class="mitigated">Shoulder surfing (privacy screen)</li>
-          <li class="mitigated">Fake wipe detection via timing</li>
-          <li class="mitigated">Evidence of data under duress</li>
-        </ul>
+      <div class="col-item">
+        <p class="col-item-label">Access</p>
+        <p class="col-item-title">Duress PINs with decoy profiles</p>
+        <p>Up to three PINs: normal login, decoy login (opens a clean profile, appears genuine), and full-wipe (overwrites key material and powers off without flushing disk). PIN verification is constant-time.</p>
       </div>
-      <div class="threat-card">
-        <h3>Firmware / sub-kernel</h3>
-        <ul>
-          <li class="mitigated">Intel ME full activation (Ring −3)</li>
-          <li class="mitigated">KVM hypervisor modules (Ring −1)</li>
-          <li class="mitigated">/dev/mem kernel memory access</li>
-          <li class="mitigated">Unsigned kernel modules</li>
-          <li class="mitigated">SMM-based memory persistence</li>
-        </ul>
+      <div class="col-item">
+        <p class="col-item-label">USB</p>
+        <p class="col-item-title">Forensic tool detection and counter-response</p>
+        <p>A resident daemon matches connected USB devices against a database of forensic tool VID:PID signatures (Cellebrite, MSAB, Qualcomm EDL, MediaTek BROM). On match: de-authorise, evict LUKS keys, shred key material, re-authorise. Any unrecognised HID device emitting more than 40 events per 100 ms is treated as a BadUSB injection attack and blocked.</p>
+      </div>
+      <div class="col-item">
+        <p class="col-item-label">Firmware</p>
+        <p class="col-item-title">Sub-ring-0 neutralisation</p>
+        <p>Intel ME is stripped to the HAP bit via <code>me_cleaner</code>. KVM modules are blacklisted at boot. S3 suspend (the SMM attack surface) is disabled. IOMMU is enforced in strict mode. A firmware audit service runs at boot and logs the result.</p>
+      </div>
+      <div class="col-item">
+        <p class="col-item-label">Physical</p>
+        <p class="col-item-title">Vision and focus guard</p>
+        <p>Camera-based face detection runs at 5 fps. If your face leaves the frame for more than ten seconds, the screen locks. If a second face enters the frame, the screen dims to 5% brightness — without locking, so the session remains live.</p>
+      </div>
+      <div class="col-item">
+        <p class="col-item-label">Anonymity</p>
+        <p class="col-item-title">I2P routing</p>
+        <p>i2pd runs inside the WireGuard tunnel. SOCKS5 and HTTP proxies are available on localhost for applications that support them. Traffic routed through I2P is end-to-end encrypted across the I2P network before reaching the VPN.</p>
+      </div>
+      <div class="col-item">
+        <p class="col-item-label">Memory</p>
+        <p class="col-item-title">Minimal RAM footprint</p>
+        <p>Key material uses <code>sodium_malloc</code> with <code>mlock</code>. Page cache is scrubbed every five minutes via <code>drop_caches</code>. Transparent hugepages are disabled. <code>vm.swappiness=0</code> prevents sensitive pages from being paged out.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ── STACK ──────────────────────────────────────────────────────────────── -->
-<section class="section" id="stack">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow" style="margin-bottom:8px">Technical Stack</p>
-      <h2>Small attack surface.<br>Auditable components.</h2>
+<!-- ── Threat model ───────────────────────────────────────────────────────── -->
+<section class="section" id="threat-model">
+  <div class="inner">
+    <p class="section-label">Threat model</p>
+    <h2 class="section-title">What Bastille protects against.</h2>
+    <div class="section-body">
+      <p>
+        Bastille is designed for people under active adversarial pressure — border crossings,
+        device seizure, network interception. It does not protect against a fully compromised
+        supply chain or a nation-state with physical access to the CPU die.
+      </p>
     </div>
+
+    <div class="threat-grid" role="table" aria-label="Threat model">
+      <div class="threat-row header" role="row">
+        <div class="threat-cell" role="columnheader">Threat</div>
+        <div class="threat-cell" role="columnheader">Mitigation</div>
+        <div class="threat-cell" role="columnheader">Status</div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Network interception</strong><p>Passive or active MITM on hostile Wi-Fi or mobile network</p></div>
+        <div class="threat-cell" role="cell">WireGuard kill-switch; HTTPS-only enforcement; DNS over TLS locked to stub resolver</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Disk forensics (BFU)</strong><p>Device powered off; attacker reads raw storage</p></div>
+        <div class="threat-cell" role="cell">LUKS2 Argon2id (1 GB memory cost); no key material on disk without both halves present</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Live forensics (AFU)</strong><p>Cellebrite UFED or equivalent; device powered on and screen locked</p></div>
+        <div class="threat-cell" role="cell">Screen lock evicts RAM key half; IOMMU blocks DMA; USB inspector shreds keys on forensic tool connection</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Coerced unlock</strong><p>User forced to provide credentials under duress</p></div>
+        <div class="threat-cell" role="cell">Duress PIN opens decoy profile or triggers full wipe; behaviour is indistinguishable at the PAM layer</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>BadUSB / O.MG cable</strong><p>HID emulation device injecting keystrokes</p></div>
+        <div class="threat-cell" role="cell">HID event-rate monitor; &gt;40 events per 100 ms triggers USB de-authorisation</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Firmware-level persistence</strong><p>Intel ME / SMM rootkit</p></div>
+        <div class="threat-cell" role="cell">ME stripped to HAP bit; SMM S3 disabled; KVM blacklisted; requires hardware-specific flashrom support</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-partial">Partial</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Shoulder surfing</strong><p>Screen observed by a bystander</p></div>
+        <div class="threat-cell" role="cell">Vision guard dims screen to 5% when a second face is detected</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Browser fingerprinting</strong><p>Tracking via browser characteristics</p></div>
+        <div class="threat-cell" role="cell">Browser allowlist enforced via AppArmor; I2P routing available</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-scoped">Scoped</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Stack ──────────────────────────────────────────────────────────────── -->
+<section class="section" id="stack">
+  <div class="inner">
+    <p class="section-label">Technical stack</p>
+    <h2 class="section-title">What it's built from.</h2>
 
     <div class="stack-list">
-      <div class="stack-item"><div class="sname">Debian Bookworm</div><div class="sdesc">Base — minbase debootstrap</div></div>
-      <div class="stack-item"><div class="sname">Sway / Wayland</div><div class="sdesc">No X11, no global key snoop</div></div>
-      <div class="stack-item"><div class="sname">WireGuard</div><div class="sdesc">VPN — in-kernel, ~4k LoC</div></div>
-      <div class="stack-item"><div class="sname">nftables</div><div class="sdesc">Kill-switch + HTTPS enforce</div></div>
-      <div class="stack-item"><div class="sname">LUKS2 Argon2id</div><div class="sdesc">Disk + profile encryption</div></div>
-      <div class="stack-item"><div class="sname">libsodium</div><div class="sdesc">All crypto primitives</div></div>
-      <div class="stack-item"><div class="sname">i2pd</div><div class="sdesc">C++ I2P router daemon</div></div>
-      <div class="stack-item"><div class="sname">systemd-resolved</div><div class="sdesc">DoT + DNSSEC enforced</div></div>
-      <div class="stack-item"><div class="sname">AppArmor</div><div class="sdesc">Browser allowlist via deny exec</div></div>
-      <div class="stack-item"><div class="sname">USBGuard</div><div class="sdesc">Hardware-level USB policy</div></div>
-      <div class="stack-item"><div class="sname">me_cleaner</div><div class="sdesc">HAP bit + ME module strip</div></div>
-      <div class="stack-item"><div class="sname">OpenCV</div><div class="sdesc">Face detection / vision guard</div></div>
-      <div class="stack-item"><div class="sname">live-build</div><div class="sdesc">Reproducible ISO assembly</div></div>
-      <div class="stack-item"><div class="sname">GnuPG 2</div><div class="sdesc">PGP — via gpggrid keyboard-safe UI</div></div>
-      <div class="stack-item"><div class="sname">PAM</div><div class="sdesc">Duress PIN + Argon2id verify</div></div>
-      <div class="stack-item"><div class="sname">greetd + tuigreet</div><div class="sdesc">Minimal Wayland login</div></div>
-    </div>
-
-    <!-- Quick start terminal -->
-    <div style="margin-top: 40px;">
-      <p class="mono muted" style="font-size:.75rem; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">Build from source</p>
-      <div class="term">
-<span class="comment"># Clone and build the live ISO</span>
-<br><span class="prompt">$</span> git clone https://github.com/ker0s3ner/tinfoil-hat-linux
-<br><span class="prompt">$</span> cd tinfoil-hat-linux/build
-<br><span class="prompt">$</span> sudo lb clean &amp;&amp; sudo lb config &amp;&amp; sudo lb build
-<br>
-<br><span class="comment"># Enroll split-key LUKS (after install)</span>
-<br><span class="prompt">$</span> sudo thl-keyguard enroll --device /dev/sda
-<br><span class="good-txt">  RAM half (copy to paper, keep offline):</span>
-<br><span class="good-txt">  a3f9...c8e1</span>
-<br>
-<br><span class="comment"># Check Ring −3 status</span>
-<br><span class="prompt">$</span> sudo thl-firmware-audit
-<br><span class="good-txt">  [PASS] Intel ME: HAP bit set</span>
-<br><span class="good-txt">  [PASS] IOMMU groups active: 14 groups</span>
-<br><span class="good-txt">  [PASS] kernel.lockdown=confidentiality</span>
-      </div>
+      <div class="stack-item"><span class="stack-item-role">Base</span><span class="stack-item-name">Debian Bookworm (live-build)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Desktop</span><span class="stack-item-name">Sway / Wayland (no X11)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Login</span><span class="stack-item-name">greetd + tuigreet</span></div>
+      <div class="stack-item"><span class="stack-item-role">VPN</span><span class="stack-item-name">WireGuard (in-kernel)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Firewall</span><span class="stack-item-name">nftables (default DROP)</span></div>
+      <div class="stack-item"><span class="stack-item-role">DNS</span><span class="stack-item-name">systemd-resolved (DoT + DNSSEC)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Anonymity</span><span class="stack-item-name">i2pd (C++ I2P router)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Encryption</span><span class="stack-item-name">LUKS2 + Argon2id</span></div>
+      <div class="stack-item"><span class="stack-item-role">Crypto</span><span class="stack-item-name">libsodium</span></div>
+      <div class="stack-item"><span class="stack-item-role">Key storage</span><span class="stack-item-name">Kernel logon keyring</span></div>
+      <div class="stack-item"><span class="stack-item-role">Auth</span><span class="stack-item-name">PAM (pam_thl_duress.so)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Isolation</span><span class="stack-item-name">AppArmor + USBGuard</span></div>
+      <div class="stack-item"><span class="stack-item-role">IOMMU</span><span class="stack-item-name">Intel VT-d / AMD-Vi (strict)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Kernel</span><span class="stack-item-name">lockdown=confidentiality</span></div>
+      <div class="stack-item"><span class="stack-item-role">Firmware</span><span class="stack-item-name">me_cleaner + flashrom</span></div>
+      <div class="stack-item"><span class="stack-item-role">Vision</span><span class="stack-item-name">OpenCV (Haar cascade)</span></div>
     </div>
   </div>
 </section>
 
-<!-- ── FOOTER ─────────────────────────────────────────────────────────────── -->
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
 <footer>
-  <div class="wrap">
-    <div class="footer-logo">
-      <svg width="48" height="48" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="90" cy="90" r="86" fill="#12151d" stroke="#1e2435" stroke-width="1.5"/>
-        <ellipse cx="90" cy="112" rx="44" ry="50" fill="#111"/>
-        <ellipse cx="90" cy="116" rx="28" ry="36" fill="#f2ede0"/>
-        <ellipse cx="90" cy="62" rx="34" ry="32" fill="#111"/>
-        <ellipse cx="90" cy="66" rx="24" ry="23" fill="#f2ede0"/>
-        <polygon points="90,72 78,82 102,82" fill="#e07b3a"/>
-        <circle cx="80" cy="58" r="6.5" fill="white"/><circle cx="81" cy="58" r="3.2" fill="#111"/>
-        <circle cx="100" cy="58" r="6.5" fill="white"/><circle cx="101" cy="58" r="3.2" fill="#111"/>
-        <ellipse cx="72" cy="164" rx="14" ry="6" fill="#e07b3a"/>
-        <ellipse cx="108" cy="164" rx="14" ry="6" fill="#e07b3a"/>
-        <rect x="20"  y="36" width="10" height="116" rx="5" fill="url(#barGrad2)"/>
-        <rect x="44"  y="36" width="10" height="116" rx="5" fill="url(#barGrad2)"/>
-        <rect x="68"  y="36" width="10" height="116" rx="5" fill="url(#barGrad2)"/>
-        <rect x="92"  y="36" width="10" height="116" rx="5" fill="url(#barGrad2)"/>
-        <rect x="116" y="36" width="10" height="116" rx="5" fill="url(#barGrad2)"/>
-        <rect x="140" y="36" width="10" height="116" rx="5" fill="url(#barGrad2)"/>
-        <rect x="12"  y="38" width="156" height="7" rx="3.5" fill="#1e2a3e"/>
-        <rect x="12"  y="140" width="156" height="7" rx="3.5" fill="#1e2a3e"/>
-        <defs>
-          <linearGradient id="barGrad2" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%"   stop-color="#1e2a3e"/>
-            <stop offset="40%"  stop-color="#7a9acc"/>
-            <stop offset="100%" stop-color="#1a2538"/>
-          </linearGradient>
-        </defs>
-      </svg>
-    </div>
-    <p>
-      <strong class="mono" style="color: var(--fg)">Tinfoil Hat Linux</strong> — modernised from the 2002 Shmoo Group original.<br>
-      Built on <a href="https://www.debian.org" target="_blank" rel="noopener">Debian Bookworm</a>.
-      Source on <a href="https://github.com/ker0s3ner/tinfoil-hat-linux" target="_blank" rel="noopener">GitHub</a>.<br>
-      <span style="margin-top:8px; display:inline-block; font-size:.78rem;">
-        Tux © Larry Ewing. Modified under permission for this project.
-      </span>
-    </p>
+  <div class="footer-inner">
+    <span class="footer-name">Bastille</span>
+    <ul class="footer-links">
+      <li><a href="https://github.com/ker0s3ner/tinfoil-hat-linux" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/ker0s3ner/tinfoil-hat-linux/releases" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="https://github.com/ker0s3ner/tinfoil-hat-linux/issues" target="_blank" rel="noopener">Issues</a></li>
+    </ul>
   </div>
 </footer>
