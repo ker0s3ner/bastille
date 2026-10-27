@@ -63,6 +63,9 @@ lvm2
 e2fsprogs
 dosfstools
 
+# Browser (DoH disabled via /etc/firefox-esr/policies/policies.json)
+firefox-esr
+
 # User app installs (no sudo required — user-level Flatpak installs only)
 flatpak
 xdg-desktop-portal

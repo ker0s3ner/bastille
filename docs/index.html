@@ -485,7 +485,8 @@ footer {
       <p class="hero-sub">
         A Debian-based live OS built for people who need their computer to keep secrets.
         Forced VPN kill-switch, split-key LUKS2 encryption, duress PINs,
-        I2P routing, and sub-ring-0 firmware hardening — on by default.
+        I2P routing, and hardened firmware defaults — built for people who
+        need operational security that holds under pressure.
       </p>
       <div class="hero-actions">
         <a href="https://github.com/ker0s3ner/tinfoil-hat-linux/releases" target="_blank" rel="noopener" class="btn-primary">
@@ -552,6 +553,13 @@ footer {
         It is built for people who need operational security that holds under pressure.
       </p>
       <p>
+        The desktop is GNOME on Wayland. This is a deliberate usability trade-off: GNOME brings a
+        larger attack surface than a minimal tiling compositor (more daemons, a file indexer, a portal
+        layer). AppArmor profiles, dconf policy locks, and no-sudo user accounts are the compensating
+        controls. If you need a smaller surface, the build is modular — swap the desktop package list
+        and the GNOME hook.
+      </p>
+      <p>
         The build is fully reproducible from source using <strong>live-build</strong> on a Debian host.
         No binary blobs are added after the Debian base. Every configuration file, hook, and
         compiled component is in the repository.
@@ -564,29 +572,29 @@ footer {
 <section class="section" id="features">
   <div class="inner">
     <p class="section-label">Features</p>
-    <h2 class="section-title">Every protection on by default. No manual configuration.</h2>
+    <h2 class="section-title">Secure defaults. Hostile assumptions. Nothing left to configure.</h2>
 
     <div class="two-col">
       <div class="col-item">
         <p class="col-item-label">Network</p>
         <p class="col-item-title">VPN kill-switch + HTTPS enforcement</p>
-        <p>All traffic is routed through WireGuard. nftables drops everything if the tunnel is down. Plain-HTTP connections are rejected at the firewall. DNS is locked to the system stub resolver. Note: browsers with built-in DoH (DNS-over-HTTPS) can bypass a resolver lock — disable DoH in browser settings or push a browser policy.</p>
+        <p>All traffic is routed through WireGuard. nftables drops everything if the tunnel is down. Plain-HTTP connections are rejected at the firewall. DNS is locked to the system stub resolver. Firefox ships with a managed policy that disables and locks DoH — browsers without a managed policy can still bypass the resolver via port-443 DoH, so only use browsers covered by an enterprise policy.</p>
       </div>
       <div class="col-item">
         <p class="col-item-label">Storage</p>
         <p class="col-item-title">Split-key LUKS2 encryption</p>
-        <p>The LUKS master key is split: one half lives in the kernel's logon keyring (write-once, not readable from userspace), the other on the encrypted partition. Lock the screen and the device becomes Before-First-Unlock.</p>
+        <p>Bastille supports an <strong>optional persistent encrypted partition</strong> on the same USB drive (the live system itself boots to RAM and leaves nothing on the host). The persistent partition is LUKS2 with Argon2id. The master key is derived from the user's passphrase at unlock time — one keyslot holds the full derived key in the kernel's logon keyring (write-once, not readable from userspace after boot). Locking the screen evicts that keyslot from the keyring; the partition cannot be read again without re-entering the passphrase. "Split-key" refers to the keyring+passphrase combination required to reconstruct access, not to two independent key halves.</p>
       </div>
       <div class="col-item">
         <p class="col-item-label">Access</p>
         <p class="col-item-title">Duress PINs with decoy profiles</p>
-        <p>Up to three PINs: normal login, decoy login (opens a sanitised profile that is hard to distinguish from genuine at the PAM layer, though a forensic examiner may still detect a second profile exists), and full-wipe (overwrites key material and powers off without flushing disk). PIN verification is constant-time.</p>
+        <p>The session auto-logs in on boot — the screen never shows a login prompt, so no PIN is exposed at startup. Duress PINs apply at <strong>screen unlock</strong> only: normal unlock, decoy unlock (opens a sanitised profile; hard to distinguish at the PAM layer, though a forensic examiner may detect a second profile exists), and wipe unlock (overwrites key material and powers off without flushing disk). PIN verification is constant-time.</p>
         <p style="font-size:0.82rem;color:var(--danger);margin-top:8px;">⚠ Legal note: in some jurisdictions, using a wipe PIN in response to a lawful demand may constitute destruction of evidence. Know your local law before enabling this feature.</p>
       </div>
       <div class="col-item">
         <p class="col-item-label">USB</p>
-        <p class="col-item-title">Forensic tool detection and counter-response</p>
-        <p>A resident daemon blocks unrecognised HID devices emitting more than 40 events per 100 ms — the reliable signal for BadUSB and O.MG cable attacks. On detection: de-authorise, evict LUKS keys, shred key material. VID:PID signature matching for specific forensic tools is also included, but note that VID:PID can be spoofed by a sophisticated attacker and is not a strong boundary on its own.</p>
+        <p class="col-item-title">USB control and counter-response</p>
+        <p>USBGuard runs in default-deny mode: any newly connected HID device is blocked until explicitly authorised. This is the primary BadUSB control. A secondary rate-monitor watches for bursts above 40 events per 100 ms (a slow implant stays under this threshold, and a fast legitimate keyboard could exceed it — the rate check is a backup layer, not the gate). On either trigger: de-authorise, evict LUKS keys, shred key material. VID:PID signature matching is also included but is spoofable and treated as supplementary.</p>
       </div>
       <div class="col-item">
         <p class="col-item-label">Firmware</p>
@@ -624,6 +632,12 @@ footer {
         device seizure, network interception. It does not protect against a fully compromised
         supply chain or a nation-state with physical access to the CPU die.
       </p>
+      <p>
+        The live OS boots entirely to RAM and leaves no artefacts on the host machine.
+        An optional persistent encrypted partition on the same USB drive stores user data;
+        the BFU/AFU threat model rows below apply when that partition is in use.
+        Without it, powering off the device destroys all session state.
+      </p>
     </div>
 
     <div class="threat-grid" role="table" aria-label="Threat model">
@@ -654,7 +668,7 @@ footer {
       </div>
       <div class="threat-row" role="row">
         <div class="threat-cell" role="cell"><strong>BadUSB / O.MG cable</strong><p>HID emulation device injecting keystrokes</p></div>
-        <div class="threat-cell" role="cell">HID event-rate monitor; &gt;40 events per 100 ms triggers USB de-authorisation</div>
+        <div class="threat-cell" role="cell">USBGuard default-deny blocks all new HID devices; secondary rate monitor triggers de-authorisation on bursts &gt;40 events/100 ms; LUKS keys evicted on detection</div>
         <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
       </div>
       <div class="threat-row" role="row">
