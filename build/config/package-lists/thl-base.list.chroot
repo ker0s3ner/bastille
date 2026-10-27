@@ -37,7 +37,6 @@ network-manager-gnome
 iproute2
 nftables
 i2pd
-resolvconf
 
 # DNS
 systemd-resolved
