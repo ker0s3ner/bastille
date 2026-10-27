@@ -55,6 +55,11 @@ lvm2
 e2fsprogs
 dosfstools
 
+# User app installs (no sudo required — user-level Flatpak installs only)
+flatpak
+xdg-desktop-portal
+xdg-desktop-portal-gtk
+
 # Utilities
 bash
 zsh
@@ -66,6 +71,7 @@ htop
 lsof
 strace
 fwupd
+secure-delete
 
 # Fonts & theming
 fonts-dejavu-core

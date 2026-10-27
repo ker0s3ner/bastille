@@ -5,7 +5,7 @@ set -e
 
 lb config noauto \
   --distribution bookworm \
-  --architectures arm64 \
+  --architectures amd64 \
   --binary-images iso-hybrid \
   --bootloader grub-efi \
   --uefi-secure-boot disable \

@@ -1,0 +1,17 @@
+[Unit]
+Description=Auto-poweroff to BFU state after idle
+After=graphical.target
+
+[Service]
+Type=simple
+User=user
+Environment=WAYLAND_DISPLAY=wayland-1
+# 10 minutes locked → screen off; 30 minutes idle → evict keys and power off
+ExecStart=/usr/bin/swayidle -w \
+    timeout 600  '/usr/local/sbin/thl-lock' \
+    timeout 1800 '/usr/local/sbin/bastille-bfu-poweroff' \
+    before-sleep '/usr/local/sbin/thl-lock'
+Restart=on-failure
+
+[Install]
+WantedBy=graphical.target

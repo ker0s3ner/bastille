@@ -20,6 +20,26 @@ systemctl enable apparmor.service
 # Greeter (Wayland login)
 systemctl enable greetd.service
 
+# RAM wipe on shutdown
+systemctl enable bastille-ramwipe.service
+
+# Auto-poweroff to BFU after idle
+systemctl enable bastille-bfu-idle.service
+
+# Make BFU poweroff script executable
+chmod +x /usr/local/sbin/bastille-bfu-poweroff
+
+# Flatpak: add Flathub as a user-level remote at first login
+# (system-wide remote would require root; user remote does not)
+install -d -m 755 /etc/profile.d
+cat > /etc/profile.d/bastille-flatpak.sh << 'FLATPAK_INIT'
+#!/bin/sh
+# Add Flathub as a user remote on first login (no sudo needed)
+if ! flatpak remotes --user 2>/dev/null | grep -q flathub; then
+    flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
+fi
+FLATPAK_INIT
+
 # Disable services that leak information or are unnecessary
 systemctl disable avahi-daemon.service   || true
 systemctl disable cups.service           || true

@@ -1,0 +1,14 @@
+[Unit]
+Description=Wipe RAM on shutdown
+DefaultDependencies=no
+Before=shutdown.target reboot.target halt.target
+After=umount.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStop=/usr/bin/sdmem -ll
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

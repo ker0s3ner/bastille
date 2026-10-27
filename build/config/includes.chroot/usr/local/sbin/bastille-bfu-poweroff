@@ -1,0 +1,16 @@
+#!/bin/sh
+# bastille-bfu-poweroff — evict all key material then power off immediately.
+# Called by swayidle after 30 minutes of inactivity.
+# No user prompt, no grace period — threat model assumes unattended device = seized device.
+
+# Close LUKS container (evicts key from kernel keyring, sets BFU state)
+cryptsetup luksClose bastille-data 2>/dev/null || true
+
+# Evict WireGuard private key from kernel
+ip link delete wg0 2>/dev/null || true
+
+# Wipe tmpfs key material
+find /run/thl -type f -exec shred -uz {} \; 2>/dev/null || true
+
+# Power off — not reboot, not suspend
+systemctl poweroff --force

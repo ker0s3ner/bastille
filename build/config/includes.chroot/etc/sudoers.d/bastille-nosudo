@@ -1,0 +1,4 @@
+# Bastille: no user has sudo. Privilege escalation is blocked by design.
+# The live user account is intentionally unprivileged.
+# System services that need root run as dedicated system users (no login shell).
+user ALL=(ALL) !ALL

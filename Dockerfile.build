@@ -1,0 +1,26 @@
+FROM --platform=linux/amd64 debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    live-build \
+    debootstrap \
+    squashfs-tools \
+    xorriso \
+    isolinux \
+    syslinux-common \
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    rsync \
+    debian-archive-keyring \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /bastille
+COPY . .
+
+RUN chmod +x build.sh build/auto/* \
+    && chmod +x build/config/hooks/live/*.hook.chroot 2>/dev/null || true
+
+CMD ["/bin/bash", "build.sh"]
