@@ -32,9 +32,8 @@ jobs:
             grub-efi-amd64-bin \
             mtools \
             dosfstools
-          # Prevent live-build from detecting Ubuntu and injecting ubuntu-keyring
-          sudo mkdir -p /etc/live
-          printf 'LB_PARENT_DISTRIBUTION="debian"\nLB_PARENT_MIRROR_BOOTSTRAP="http://deb.debian.org/debian/"\nLB_PARENT_MIRROR_CHROOT_SECURITY="http://security.debian.org/debian-security/"\n' | sudo tee /etc/live/build.conf
+          # Install Debian's debootstrap scripts (Ubuntu's debootstrap lacks /debian script)
+          sudo ln -sf /usr/share/debootstrap/scripts/bookworm /usr/share/debootstrap/scripts/debian || true
 
       - name: Build ISO
         run: |

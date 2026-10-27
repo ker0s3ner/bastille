@@ -5,6 +5,7 @@ set -e
 
 lb config noauto \
   --distribution bookworm \
+  --parent-distribution bookworm \
   --architectures amd64 \
   --binary-images iso-hybrid \
   --bootloader grub-efi \
