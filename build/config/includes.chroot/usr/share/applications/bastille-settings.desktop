@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Bastille Settings
+Comment=Configure Bastille security features
+Exec=/usr/local/bin/bastille-settings
+Icon=security-high
+Terminal=false
+Categories=Settings;Security;
+StartupWMClass=io.bastille.Settings
+Keywords=security;duress;dsm;vpn;bastille;

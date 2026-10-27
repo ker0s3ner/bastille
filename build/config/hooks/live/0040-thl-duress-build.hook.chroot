@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build and install pam_thl_duress.so + thl-duress-setup inside the chroot.
+# Build and install pam_thl_duress.so + DSM helpers inside the chroot.
 set -e
 
 # Dependencies must be installed before this hook runs.
@@ -10,9 +10,14 @@ apt-get install -y --no-install-recommends \
     make \
     dpkg-dev
 
-# The source is injected into the image via includes.chroot.
-# We build it there and then clean up the source to keep the image small.
+# Build pam_thl_duress.so
 cd /usr/local/src/thl-duress
+make
+make install DESTDIR=
+make clean
+
+# Build bastille-dsm-config setuid helper (no sudo — purpose-built privileged binary)
+cd /usr/local/src/bastille-dsm-config
 make
 make install DESTDIR=
 make clean
@@ -23,7 +28,8 @@ chmod 0750 /etc/thl/actions/*.sh
 chmod 0750 /usr/local/sbin/bastille-dsm
 chmod 0750 /usr/local/sbin/bastille-dsm-prompt
 chmod 0750 /usr/local/sbin/bastille-dsm-watchdog
-chmod 0750 /usr/local/sbin/bastille-dsm-setup
+# bastille-settings is the user-facing GTK panel; runs as the live user
+chmod 0755 /usr/local/bin/bastille-settings
 chown -R root:root /etc/thl
 
 # Register DSM as a duress action in the config template.
