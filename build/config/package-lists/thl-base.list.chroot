@@ -32,7 +32,6 @@ systemd-resolved
 
 # Display manager
 greetd
-tuigreet
 
 # PGP
 gnupg2
