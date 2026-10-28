@@ -18,6 +18,7 @@ lb config noauto \
   --apt-recommends false \
   --apt-indices false \
   --compression gzip \
+  --chroot-squashfs-compression-type gzip \
   --checksums sha512 \
   --iso-application "Bastille" \
   --iso-publisher "Bastille Project" \
