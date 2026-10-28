@@ -2,11 +2,6 @@ name: Build Bastille ISO
 
 on:
   workflow_dispatch:
-    inputs:
-      release:
-        description: 'Create a GitHub Release with the ISO'
-        type: boolean
-        default: false
 
 jobs:
   build:
@@ -68,12 +63,16 @@ jobs:
           retention-days: 3
 
       - name: Create Release
-        if: inputs.release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          name: Bastille Build ${{ github.run_number }}
-          draft: true
+          tag_name: v0.1.${{ github.run_number }}-amd64
+          name: Bastille ${{ github.run_number }} (x86_64)
+          body: |
+            Automated build from commit ${{ github.sha }}.
+
+            **Architecture:** x86_64 (amd64)
+            **Base:** Debian Bookworm live
+          draft: false
           files: |
             build/live-image-amd64.hybrid.iso
-            build/bastille.iso.sha256
+            bastille.iso.sha256

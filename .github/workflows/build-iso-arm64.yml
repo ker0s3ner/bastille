@@ -2,11 +2,6 @@ name: Build Bastille ISO (ARM64)
 
 on:
   workflow_dispatch:
-    inputs:
-      release:
-        description: 'Create a GitHub Release with the ISO'
-        type: boolean
-        default: false
 
 jobs:
   build:
@@ -78,12 +73,16 @@ jobs:
           retention-days: 3
 
       - name: Create Release
-        if: inputs.release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-arm64-${{ github.run_number }}
-          name: Bastille ARM64 Build ${{ github.run_number }}
-          draft: true
+          tag_name: v0.1.${{ github.run_number }}-arm64
+          name: Bastille ${{ github.run_number }} (ARM64)
+          body: |
+            Automated build from commit ${{ github.sha }}.
+
+            **Architecture:** ARM64 (Apple Silicon, Raspberry Pi 4+)
+            **Base:** Debian Bookworm live
+          draft: false
           files: |
             build/live-image-arm64.hybrid.iso
             bastille-arm64.iso.sha256
