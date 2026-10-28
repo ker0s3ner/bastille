@@ -32,7 +32,6 @@ jobs:
             xorriso \
             isolinux \
             syslinux-common \
-            grub-pc-bin \
             grub-efi-arm64-bin \
             mtools \
             dosfstools \
