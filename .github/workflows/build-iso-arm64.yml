@@ -1,0 +1,84 @@
+name: Build Bastille ISO (ARM64)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create a GitHub Release with the ISO'
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    container:
+      image: debian:bookworm
+      options: --privileged
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install live-build
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            bash \
+            live-build \
+            debootstrap \
+            debian-archive-keyring \
+            squashfs-tools \
+            xorriso \
+            isolinux \
+            syslinux-common \
+            grub-pc-bin \
+            grub-efi-arm64-bin \
+            mtools \
+            dosfstools \
+            git \
+            ca-certificates
+
+      - name: Patch config for arm64
+        run: |
+          sed -i 's/--architectures amd64/--architectures arm64/' build/auto/config
+          sed -i 's/grub-efi-amd64-bin/grub-efi-arm64-bin/g' build/auto/config 2>/dev/null || true
+
+      - name: Build ISO
+        shell: bash
+        run: bash build.sh 2>&1 | tee /tmp/bastille-build.log || { tail -20 /tmp/bastille-build.log; exit 1; }
+
+      - name: Check ISO exists
+        run: |
+          find . -name "*.iso" -o -name "*.img" 2>/dev/null | head -20
+          ls -lh build/live-image-arm64.hybrid.iso
+          sha256sum build/live-image-arm64.hybrid.iso > bastille-arm64.iso.sha256
+          cat bastille-arm64.iso.sha256
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bastille-iso-arm64
+          path: |
+            build/live-image-arm64.hybrid.iso
+            bastille-arm64.iso.sha256
+          retention-days: 7
+
+      - name: Upload build log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-arm64
+          path: /tmp/bastille-build.log
+          retention-days: 3
+
+      - name: Create Release
+        if: inputs.release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-arm64-${{ github.run_number }}
+          name: Bastille ARM64 Build ${{ github.run_number }}
+          draft: true
+          files: |
+            build/live-image-arm64.hybrid.iso
+            bastille-arm64.iso.sha256
