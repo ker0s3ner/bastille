@@ -47,6 +47,7 @@ jobs:
           sed -i '/msr-tools/d'                build/config/package-lists/thl-base.list.chroot
           sed -i '/dmidecode/d'                build/config/package-lists/thl-base.list.chroot
           sed -i '/flashrom/d'                 build/config/package-lists/thl-base.list.chroot
+          sed -i '/torbrowser-launcher/d'     build/config/package-lists/thl-base.list.chroot
 
       - name: Build ISO
         shell: bash
