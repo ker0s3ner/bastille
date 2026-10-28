@@ -10,3 +10,4 @@ build/config/common
 build/config/source
 output/*.iso
 output/*.sha256
+output/build/

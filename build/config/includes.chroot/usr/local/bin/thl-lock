@@ -1,0 +1,3 @@
+#!/bin/bash
+# Bastille screen lock — called by Super+L keybind
+loginctl lock-session

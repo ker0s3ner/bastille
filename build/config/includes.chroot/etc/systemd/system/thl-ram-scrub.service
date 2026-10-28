@@ -1,10 +1,14 @@
 [Unit]
-Description=THL periodic RAM page cache scrub
-After=multi-user.target
+Description=Bastille — secure RAM scrub on shutdown
+DefaultDependencies=no
+Before=shutdown.target reboot.target halt.target poweroff.target
+After=umount.target
 
 [Service]
 Type=oneshot
-# Drop filesystem page cache, dentries and inodes.
-# Sensitive file content that was read (keys, profiles) is evicted from RAM.
-# This does NOT affect locked memory (mlock'd key material in thl-keyguard).
-ExecStart=/bin/sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'
+ExecStart=/usr/bin/sdmem -f -l -l
+TimeoutStartSec=120
+RemainAfterExit=yes
+
+[Install]
+WantedBy=shutdown.target reboot.target halt.target poweroff.target

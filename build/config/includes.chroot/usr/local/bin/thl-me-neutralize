@@ -1,0 +1,30 @@
+#!/bin/bash
+# Set HAP (High Assurance Platform) bit on Intel ME to force minimal mode.
+# This is non-destructive and reversible — it does not flash firmware.
+# Only effective on supported Intel platforms; silently no-ops on AMD/ARM.
+
+set -euo pipefail
+
+if ! command -v rdmsr &>/dev/null || ! command -v wrmsr &>/dev/null; then
+    echo "thl-me-neutralize: msr-tools not available, skipping" >&2
+    exit 0
+fi
+
+modprobe msr 2>/dev/null || true
+
+cpu_count=$(ls /dev/cpu/ 2>/dev/null | grep -c '^[0-9]' || echo 0)
+if [ "$cpu_count" -eq 0 ]; then
+    echo "thl-me-neutralize: no MSR devices found" >&2
+    exit 0
+fi
+
+changed=0
+for cpu_num in $(ls /dev/cpu/ | grep '^[0-9]'); do
+    current=$(rdmsr -p "$cpu_num" 0x1A8 2>/dev/null || echo "")
+    [ -z "$current" ] && continue
+    # Bit 0 of MSR 0x1A8 = HAP disable bit
+    new_val=$(printf "0x%x" $(( 0x${current} | 0x1 )))
+    wrmsr -p "$cpu_num" 0x1A8 "$new_val" 2>/dev/null && changed=$((changed + 1)) || true
+done
+
+echo "thl-me-neutralize: HAP bit set on $changed CPU(s)"

@@ -1,0 +1,49 @@
+#!/bin/bash
+# Bastille — Flatpak install gatekeeper.
+# Allows only curated privacy-focused apps from Flathub.
+# All other flatpak subcommands (run, list, update, remove) pass through unchanged.
+
+ALLOWED=(
+    "com.signal.Signal"
+    "org.keepassxc.KeePassXC"
+    "org.libreoffice.LibreOffice"
+    "org.videolan.VLC"
+    "org.gimp.GIMP"
+    "org.inkscape.Inkscape"
+    "org.audacityteam.Audacity"
+    "org.mozilla.Thunderbird"
+    "org.onionshare.OnionShare"
+    "org.electrum.electrum"
+    "com.github.micahflee.torbrowser-launcher"
+    "org.gnome.Evince"
+    "org.gnome.gedit"
+    "org.gnome.Calculator"
+    "org.gnome.clocks"
+    "io.github.mimbrero.WhatsAppDesktop"
+    "org.telegram.desktop"
+    "md.obsidian.Obsidian"
+    "net.mkiol.SpeechNote"
+    "org.cryptomator.Cryptomator"
+)
+
+if [[ "${1:-}" == "install" ]]; then
+    for arg in "${@:2}"; do
+        # Skip flags
+        [[ "$arg" == -* ]] && continue
+        # Check if it looks like an app ID (contains two dots)
+        [[ "$arg" != *.*.* ]] && continue
+        allowed=false
+        for app in "${ALLOWED[@]}"; do
+            [[ "$arg" == "$app" ]] && allowed=true && break
+        done
+        if ! $allowed; then
+            echo "bastille: '$arg' is not in the approved app list." >&2
+            echo "" >&2
+            echo "Approved apps:" >&2
+            printf '  %s\n' "${ALLOWED[@]}" >&2
+            exit 1
+        fi
+    done
+fi
+
+exec /usr/bin/flatpak "$@"

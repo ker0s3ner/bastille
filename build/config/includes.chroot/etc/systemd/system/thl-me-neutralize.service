@@ -1,0 +1,12 @@
+[Unit]
+Description=Bastille — Intel ME neutralization (HAP bit)
+ConditionPathExists=/dev/cpu/0/msr
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/thl-me-neutralize
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

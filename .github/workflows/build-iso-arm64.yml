@@ -41,7 +41,12 @@ jobs:
       - name: Patch config for arm64
         run: |
           sed -i 's/--architectures amd64/--architectures arm64/' build/auto/config
-          sed -i 's/grub-efi-amd64-bin/grub-efi-arm64-bin/g' build/auto/config 2>/dev/null || true
+          # Remove x86-only packages that have no ARM64 equivalent
+          sed -i '/xserver-xorg-video-intel/d' build/config/package-lists/thl-base.list.chroot
+          sed -i '/intel-microcode/d'          build/config/package-lists/thl-base.list.chroot
+          sed -i '/msr-tools/d'                build/config/package-lists/thl-base.list.chroot
+          sed -i '/dmidecode/d'                build/config/package-lists/thl-base.list.chroot
+          sed -i '/flashrom/d'                 build/config/package-lists/thl-base.list.chroot
 
       - name: Build ISO
         shell: bash

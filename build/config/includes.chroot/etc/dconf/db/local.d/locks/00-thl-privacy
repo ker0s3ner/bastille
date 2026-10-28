@@ -1,0 +1,5 @@
+/org/gnome/system/location/enabled
+/org/gnome/desktop/privacy/send-software-usage-stats
+/org/gnome/desktop/privacy/report-technical-problems
+/org/gnome/desktop/screensaver/lock-enabled
+/org/gnome/desktop/notifications/show-banners

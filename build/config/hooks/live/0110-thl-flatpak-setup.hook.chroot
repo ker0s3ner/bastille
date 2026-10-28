@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+
+# Add Flathub as a system remote (user installs filtered by /usr/local/bin/flatpak wrapper)
+flatpak remote-add --system --if-not-exists flathub \
+    https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
+
+# Ensure wrapper is ahead of real binary in PATH
+# /usr/local/bin comes before /usr/bin — wrapper at /usr/local/bin/flatpak
+# intercepts all user calls; the wrapper exec's /usr/bin/flatpak for real work.
+echo "Flatpak curated store configured."
