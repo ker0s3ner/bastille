@@ -34,7 +34,7 @@ lb config
 echo "--- Building ISO ---"
 lb build
 
-ISO=$(ls -1t "$BUILD_DIR"/live-image-amd64.hybrid.iso 2>/dev/null | head -1)
+ISO=$(ls -1t "$BUILD_DIR"/live-image-*.hybrid.iso 2>/dev/null | head -1)
 if [ -n "$ISO" ]; then
   echo
   echo "=== Build complete ==="
