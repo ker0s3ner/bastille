@@ -3,5 +3,5 @@ vt = 1
 
 [default_session]
 # tuigreet: TUI greeter with clock, hostname, user list; from bookworm-backports
-command = "tuigreet --time --remember --remember-session --asterisks --greeting 'Bastille OS' --cmd gnome-session"
+command = "tuigreet --time --remember --asterisks --greeting 'Bastille OS' --cmd sway"
 user = "greeter"

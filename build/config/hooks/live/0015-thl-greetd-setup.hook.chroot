@@ -12,7 +12,6 @@ fi
 chmod 750 /etc/greetd
 chown root:greeter /etc/greetd
 chmod 640 /etc/greetd/config.toml
-chmod 644 /etc/greetd/bastille.css
 
 # greetd socket dir
 install -d -m 755 /run/greetd

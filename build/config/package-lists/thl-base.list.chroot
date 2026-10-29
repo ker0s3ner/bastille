@@ -10,27 +10,31 @@ ca-certificates
 curl
 wget
 
-# elogind — logind replacement for GNOME/PolicyKit without systemd
+# elogind — logind replacement for Sway/PolicyKit without systemd
 elogind
 libelogind0
 libpam-elogind
 
-# GNOME desktop (works with elogind instead of systemd-logind)
-gnome-core
-gnome-session
-gnome-shell
-gnome-control-center
-gnome-terminal
-gnome-keyring
-nautilus
+# Sway Wayland compositor stack
+sway
+swayidle
+swaylock
+foot
+waybar
+wofi
+mako-notifier
+grim
+slurp
+wl-clipboard
+xdg-desktop-portal-wlr
+kanshi
+brightnessctl
 
 # Greeter (greetd daemon + tuigreet from bookworm-backports)
 greetd
 tuigreet
 
-# GPU drivers — Intel (amd64 only; arm64 workflow strips intel packages) and AMD
-xserver-xorg-video-amdgpu
-xserver-xorg-video-radeon
+# GPU drivers — Wayland/DRM (no X11 server drivers needed); firmware still required
 firmware-amd-graphics
 firmware-misc-nonfree
 mesa-vulkan-drivers
@@ -39,7 +43,7 @@ libgl1-mesa-dri
 # Network & VPN
 wireguard-tools
 network-manager
-network-manager-gnome
+# nmtui / nmcli used for network management (no GTK tray needed on Sway)
 iproute2
 nftables
 
@@ -48,8 +52,7 @@ nftables
 # PGP
 gnupg2
 gnupg-agent
-kleopatra
-pinentry-gnome3
+pinentry-curses
 gpgconf
 
 # Build tools (needed by hooks to compile C binaries — must be pre-installed, DNS unavailable in hooks)
@@ -96,7 +99,6 @@ firefox-esr
 # User app installs (no sudo required — user-level Flatpak installs only)
 flatpak
 xdg-desktop-portal
-xdg-desktop-portal-gnome
 
 # Utilities
 bash
@@ -124,8 +126,6 @@ cron
 secure-delete
 mat2
 rfkill
-zenity
-dconf-cli
 
 # Update infrastructure (polkit is policykit-1 in Debian 12; dnscrypt-proxy via hook)
 policykit-1
@@ -141,7 +141,7 @@ fonts-dejavu-core
 fonts-liberation
 adwaita-icon-theme
 
-# Initial setup wizard dependencies
+# GTK4/libadwaita (for settings app and setup wizard)
 python3-gi
 gir1.2-adw-1
 libadwaita-1-0

@@ -1,47 +1,109 @@
 #!/bin/sh
-# GNOME session defaults for the live user.
+# Deploy default Sway config for the live user.
 set -e
 
-# GDM3 autologin for the live user (no password prompt on boot)
-mkdir -p /etc/gdm3
-cat > /etc/gdm3/custom.conf << 'EOF'
-[daemon]
-AutomaticLoginEnable=true
-AutomaticLogin=user
+USER_HOME=/home/user
+CONFIG_DIR="$USER_HOME/.config/sway"
+mkdir -p "$CONFIG_DIR"
 
-[security]
-# GDM runs as dedicated gdm user; no escalation path
-DisallowTCP=true
+cat > "$CONFIG_DIR/config" << 'EOF'
+# Bastille OS — default Sway config
 
-[xdmcp]
-Enable=false
+# Mod key: Super (Win)
+set $mod Mod4
+
+# Terminal
+set $term foot
+
+# App launcher
+set $menu wofi --show run
+
+# Lock screen
+set $lock swaylock -f -c 000000
+
+# ── Output ──────────────────────────────────────────────────────────────────
+output * bg #000000 solid_color
+
+# ── Input ───────────────────────────────────────────────────────────────────
+input type:keyboard {
+    xkb_options caps:escape
+}
+input type:touchpad {
+    tap enabled
+    natural_scroll enabled
+}
+
+# ── Idle / lock ─────────────────────────────────────────────────────────────
+exec swayidle -w \
+    timeout 300 '$lock' \
+    timeout 600 'swaymsg "output * dpms off"' \
+    resume 'swaymsg "output * dpms on"' \
+    before-sleep '$lock'
+
+# ── Startup ──────────────────────────────────────────────────────────────────
+exec mako
+exec waybar
+
+# ── Key bindings ─────────────────────────────────────────────────────────────
+bindsym $mod+Return exec $term
+bindsym $mod+d exec $menu
+bindsym $mod+l exec $lock
+
+bindsym $mod+Shift+q kill
+bindsym $mod+Shift+r reload
+bindsym $mod+Shift+e exec swaynag -t warning -m 'Exit Bastille OS?' \
+    -B 'Yes, exit' 'swaymsg exit'
+
+# Focus
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+# Move
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+# Workspaces
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+
+# Layout
+bindsym $mod+b splith
+bindsym $mod+v splitv
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e layout toggle split
+bindsym $mod+f fullscreen
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+
+# Screenshots
+bindsym Print exec grim ~/screenshot-$(date +%Y%m%d-%H%M%S).png
+bindsym $mod+Print exec grim -g "$(slurp)" ~/screenshot-$(date +%Y%m%d-%H%M%S).png
+
+# ── Appearance ───────────────────────────────────────────────────────────────
+default_border pixel 2
+gaps inner 6
+gaps outer 0
+client.focused #4c7899 #285577 #ffffff #2e9ef4 #285577
+
+# ── Status bar (waybar handles this) ─────────────────────────────────────────
+bar {
+    swaybar_command waybar
+}
+
+include /etc/sway/config.d/*
 EOF
 
-# Disable GNOME's built-in idle suspend — bastille-bfu-idle handles this
-mkdir -p /etc/dconf/db/local.d
-cat > /etc/dconf/db/local.d/00-bastille << 'EOF'
-[org/gnome/settings-daemon/plugins/power]
-sleep-inactive-ac-type='nothing'
-sleep-inactive-battery-type='nothing'
-power-button-action='interactive'
-
-[org/gnome/desktop/screensaver]
-lock-enabled=true
-lock-delay=uint32 0
-
-[org/gnome/desktop/session]
-idle-delay=uint32 300
-
-[org/gnome/shell]
-favorite-apps=['org.gnome.Nautilus.desktop', 'org.gnome.Terminal.desktop']
-EOF
-
-# Lock dconf keys so the user cannot weaken these settings
-mkdir -p /etc/dconf/db/local.d/locks
-cat > /etc/dconf/db/local.d/locks/bastille << 'EOF'
-/org/gnome/settings-daemon/plugins/power/sleep-inactive-ac-type
-/org/gnome/settings-daemon/plugins/power/sleep-inactive-battery-type
-/org/gnome/desktop/screensaver/lock-enabled
-EOF
-
-dconf update || true
+chown -R user:user "$USER_HOME/.config"
