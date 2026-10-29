@@ -1,0 +1,98 @@
+#!/bin/bash
+# Install packages not in Debian 12 stable: fastfetch, gtkgreet
+set -euo pipefail
+
+ARCH=$(dpkg --print-architecture)
+
+# ── fastfetch ─────────────────────────────────────────────────────────────────
+# Not in Debian 12 stable; fetch latest .deb from GitHub releases
+install_fastfetch() {
+    local api_url="https://api.github.com/repos/fastfetch-cli/fastfetch/releases/latest"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+
+    echo "[fastfetch] fetching latest release info..."
+    local release_json
+    release_json=$(curl -fsSL "$api_url")
+
+    # Pick the right .deb asset for this arch
+    local deb_name
+    case "$ARCH" in
+        amd64) deb_name="fastfetch-linux-amd64.deb" ;;
+        arm64) deb_name="fastfetch-linux-aarch64.deb" ;;
+        *)     echo "[fastfetch] unsupported arch $ARCH, skipping"; return 0 ;;
+    esac
+
+    local deb_url
+    deb_url=$(echo "$release_json" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for a in data.get('assets', []):
+    if a['name'] == '$deb_name':
+        print(a['browser_download_url'])
+        break
+")
+
+    if [ -z "$deb_url" ]; then
+        echo "[fastfetch] could not find $deb_name in latest release, skipping"
+        return 0
+    fi
+
+    echo "[fastfetch] downloading $deb_url"
+    curl -fsSL -o "$tmpdir/fastfetch.deb" "$deb_url"
+    dpkg -i "$tmpdir/fastfetch.deb" || apt-get install -f -y
+    rm -rf "$tmpdir"
+    echo "[fastfetch] installed OK"
+}
+
+# ── gtkgreet ──────────────────────────────────────────────────────────────────
+# greetd-gtkgreet not in Debian 12 stable; fetch .deb from GitHub (any-arch binary)
+install_gtkgreet() {
+    local api_url="https://api.github.com/repos/duncte123/gtkgreet-deb/releases/latest"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+
+    echo "[gtkgreet] fetching latest release info..."
+    local release_json
+    release_json=$(curl -fsSL "$api_url" 2>/dev/null) || {
+        echo "[gtkgreet] GitHub release fetch failed, trying apt backports..."
+        apt-get install -y -t bookworm-backports greetd-gtkgreet 2>/dev/null || \
+            echo "[gtkgreet] not available from backports either; greeter will fall back to agreety"
+        return 0
+    }
+
+    local deb_url
+    deb_url=$(echo "$release_json" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+assets = data.get('assets', [])
+# prefer arch-specific, fall back to all/any
+for a in assets:
+    if '$ARCH' in a['name'] and a['name'].endswith('.deb'):
+        print(a['browser_download_url']); break
+else:
+    for a in assets:
+        if a['name'].endswith('.deb'):
+            print(a['browser_download_url']); break
+" 2>/dev/null)
+
+    if [ -n "$deb_url" ]; then
+        echo "[gtkgreet] downloading $deb_url"
+        curl -fsSL -o "$tmpdir/gtkgreet.deb" "$deb_url"
+        dpkg -i "$tmpdir/gtkgreet.deb" || apt-get install -f -y
+        rm -rf "$tmpdir"
+        echo "[gtkgreet] installed OK"
+    else
+        # Fallback: try backports
+        echo "[gtkgreet] no suitable .deb asset found, trying backports..."
+        apt-get install -y -t bookworm-backports greetd-gtkgreet 2>/dev/null || {
+            echo "[gtkgreet] not in backports; updating greetd config to use agreety fallback"
+            sed -i 's|command = "gtkgreet.*|command = "agreety --cmd gnome-session"|' \
+                /etc/greetd/config.toml 2>/dev/null || true
+        }
+        rm -rf "$tmpdir"
+    fi
+}
+
+install_fastfetch
+install_gtkgreet

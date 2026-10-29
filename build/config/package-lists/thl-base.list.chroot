@@ -3,7 +3,6 @@ openrc
 sysvinit-core
 dbus
 udev
-eudev
 util-linux
 locales
 tzdata
@@ -25,9 +24,8 @@ gnome-terminal
 gnome-keyring
 nautilus
 
-# Greeter
+# Greeter (greetd daemon; gtkgreet installed via hook from GitHub release)
 greetd
-greetd-gtkgreet
 
 # GPU drivers — Intel (amd64 only; arm64 workflow strips intel packages) and AMD
 xserver-xorg-video-amdgpu
@@ -135,9 +133,8 @@ python3
 parted
 jq
 
-# neofetch / fastfetch
+# neofetch (fastfetch installed via hook from GitHub release)
 neofetch
-fastfetch
 
 # Fonts & theming
 fonts-dejavu-core
