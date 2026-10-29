@@ -1,730 +1,655 @@
-<title>Bastille</title>
+<title>Bastille OS</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap">
 
 <style>
-/* ── Tokens ── dark-first, single theme ──────────────────────────────── */
+/* ── Layout: sticky sidebar nav on wide, stacked on mobile ── */
 :root {
-  --bg:           #0b0c10;
-  --surface:      #13151e;
-  --border:       #1d2032;
-  --border-hi:    #2d3250;
-  --fg:           #dde3f0;
-  --fg-muted:     #626e90;
-  --fg-dim:       #3d4560;
-  --accent:       #4f8fd4;
-  --accent-dim:   #1e3a5f;
-  --danger:       #c04b3a;
-
-  --font-display: 'Syne', system-ui, sans-serif;
-  --font-body:    'IBM Plex Sans', system-ui, sans-serif;
-  --font-mono:    'IBM Plex Mono', 'Courier New', monospace;
-
+  --bg:        #0a0e14;
+  --bg2:       #0f1520;
+  --bg3:       #14202e;
+  --border:    #1e2d40;
+  --fg:        #dde6f0;
+  --fg-muted:  #7a90a8;
+  --accent:    #3ecfca;
+  --accent2:   #f4a94e;
+  --danger:    #e05252;
+  --mono: "IBM Plex Mono", "Cascadia Code", "Fira Mono", monospace;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
   color-scheme: dark;
 }
 
-/* ── Reset & base ──────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:       #f0f4f8;
+    --bg2:      #e2eaf2;
+    --bg3:      #d6e1ec;
+    --border:   #b8cde0;
+    --fg:       #0d1a2a;
+    --fg-muted: #4a6278;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg:       #f0f4f8;
+  --bg2:      #e2eaf2;
+  --bg3:      #d6e1ec;
+  --border:   #b8cde0;
+  --fg:       #0d1a2a;
+  --fg-muted: #4a6278;
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
+  margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-body);
-  font-size: 1rem;
-  line-height: 1.7;
-  -webkit-font-smoothing: antialiased;
-}
-
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
-
-/* ── Layout helpers ──────────────────────────────────────────────────── */
-.inner {
-  max-width: 860px;
-  margin-inline: auto;
-  padding-left:  max(24px, env(safe-area-inset-left, 0px));
-  padding-right: max(24px, env(safe-area-inset-right, 0px));
-}
-
-/* ── Nav ─────────────────────────────────────────────────────────────── */
-nav {
-  position: sticky;
-  top: env(safe-area-inset-top, 0px);
-  z-index: 100;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-}
-
-nav::before {
-  content: "";
-  position: fixed;
-  inset: 0 0 auto;
-  height: env(safe-area-inset-top, 0px);
-  background: var(--bg);
-  z-index: 101;
-}
-
-.nav-inner {
-  max-width: 1100px;
-  margin-inline: auto;
-  padding-inline: max(24px, env(safe-area-inset-left, 0px));
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.65;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 0;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
 }
 
-.nav-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--fg);
-  letter-spacing: 0.03em;
-  text-decoration: none;
-  flex-shrink: 0;
-}
-
-.nav-logo:hover { text-decoration: none; }
-
-.nav-logo svg { flex-shrink: 0; }
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  list-style: none;
-}
-
-.nav-links a {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--fg-muted);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  transition: color 0.15s;
-}
-
-.nav-links a:hover { color: var(--fg); text-decoration: none; }
-
-.nav-cta {
-  font-family: var(--font-mono);
-  font-size: 0.78rem !important;
-  color: var(--accent) !important;
-  letter-spacing: 0.02em !important;
-  text-transform: none !important;
-  padding: 6px 14px;
-  border: 1px solid var(--accent-dim);
-  border-radius: 4px;
-  transition: border-color 0.15s, background 0.15s !important;
-}
-
-.nav-cta:hover { background: var(--accent-dim); border-color: var(--accent) !important; }
-
-/* ── Hero ─────────────────────────────────────────────────────────────── */
+/* ── Scanline overlay on hero ── */
 .hero {
-  padding-block: 96px 80px;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg2);
   border-bottom: 1px solid var(--border);
+  padding: 80px max(32px, env(safe-area-inset-left, 0px)) 72px;
 }
-
-.hero .inner {
-  display: flex;
-  align-items: center;
-  gap: 64px;
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(0,0,0,.07) 3px,
+    rgba(0,0,0,.07) 4px
+  );
+  pointer-events: none;
 }
-
-.hero-text { flex: 1; min-width: 0; }
 
 .hero-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--fg-muted);
-  letter-spacing: 0.12em;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .15em;
   text-transform: uppercase;
+  color: var(--accent);
   margin-bottom: 20px;
 }
-
 .hero-title {
-  font-family: var(--font-display);
-  font-size: clamp(3rem, 8vw, 5.5rem);
-  font-weight: 800;
-  line-height: 0.92;
-  letter-spacing: -0.02em;
+  font-family: var(--mono);
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  font-weight: 600;
+  letter-spacing: -.02em;
   color: var(--fg);
   text-wrap: balance;
-  margin-bottom: 28px;
+  margin: 0 0 20px;
+  line-height: 1.1;
 }
-
+.hero-title span { color: var(--accent); }
 .hero-sub {
   font-size: 1.05rem;
   color: var(--fg-muted);
-  max-width: 52ch;
-  line-height: 1.65;
-  margin-bottom: 40px;
+  max-width: 56ch;
+  margin: 0 0 36px;
 }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 
-.hero-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.btn-primary {
+.btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-family: var(--mono);
+  font-size: 13px;
   font-weight: 500;
+  padding: 10px 20px;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: opacity .15s;
+  cursor: pointer;
+  border: none;
+}
+.btn:hover { opacity: .82; }
+.btn-primary { background: var(--accent); color: #071018; }
+.btn-ghost {
+  background: transparent;
   color: var(--fg);
-  background: var(--accent);
-  padding: 11px 22px;
-  border-radius: 4px;
-  transition: opacity 0.15s;
-  text-decoration: none;
+  border: 1px solid var(--border);
 }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
 
-.btn-primary:hover { opacity: 0.88; text-decoration: none; }
-
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+/* ── Badges ── */
+.badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 32px; }
+.badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
   color: var(--fg-muted);
-  border: 1px solid var(--border-hi);
-  padding: 11px 22px;
-  border-radius: 4px;
-  transition: color 0.15s, border-color 0.15s;
+  background: var(--bg3);
+}
+.badge-green { border-color: var(--accent); color: var(--accent); }
+.badge-amber { border-color: var(--accent2); color: var(--accent2); }
+
+/* ── Page shell ── */
+.page { max-width: 1080px; margin: 0 auto; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0;
+  align-items: start;
+  min-height: 60vh;
+}
+@media (max-width: 720px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidenav { display: none; }
+}
+
+/* ── Sidebar nav ── */
+.sidenav {
+  position: sticky;
+  top: 24px;
+  padding: 36px 0 36px 0;
+  min-width: 0;
+}
+.sidenav ul { list-style: none; margin: 0; padding: 0; }
+.sidenav li + li { margin-top: 2px; }
+.sidenav a {
+  display: block;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg-muted);
   text-decoration: none;
+  padding: 5px 12px 5px 0;
+  border-right: 2px solid transparent;
+  transition: color .12s, border-color .12s;
+}
+.sidenav a:hover, .sidenav a.active {
+  color: var(--accent);
+  border-right-color: var(--accent);
+}
+.sidenav-section {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  padding: 18px 0 6px;
+  opacity: .6;
 }
 
-.btn-secondary:hover { color: var(--fg); border-color: var(--fg-muted); text-decoration: none; }
-
-.hero-logo {
-  flex-shrink: 0;
-  opacity: 0.9;
+/* ── Content ── */
+.content {
+  padding: 48px 0 80px 40px;
+  border-left: 1px solid var(--border);
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .content { padding: 32px 0 60px; border-left: none; }
 }
 
-/* ── Sections ─────────────────────────────────────────────────────────── */
-.section {
-  padding-block: 72px;
-  border-bottom: 1px solid var(--border);
-}
-
+.section { margin-bottom: 64px; scroll-margin-top: 24px; }
 .section-label {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.12em;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--accent);
-  margin-bottom: 32px;
+  margin-bottom: 10px;
 }
-
-.section-title {
-  font-family: var(--font-display);
-  font-size: clamp(1.5rem, 3vw, 2rem);
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--fg);
+h2 {
+  font-family: var(--mono);
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0 0 20px;
   text-wrap: balance;
-  margin-bottom: 20px;
-  letter-spacing: -0.01em;
 }
-
-.section-body {
-  max-width: 65ch;
-}
-
-.section-body p {
-  color: var(--fg-muted);
-  margin-bottom: 16px;
-}
-
-.section-body p:last-child { margin-bottom: 0; }
-
-.section-body strong { color: var(--fg); font-weight: 500; }
-
-/* ── Two-col section ──────────────────────────────────────────────────── */
-.two-col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 48px 64px;
-  margin-top: 48px;
-}
-
-.col-item {}
-
-.col-item-label {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--fg-dim);
-  margin-bottom: 8px;
-}
-
-.col-item-title {
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--fg);
-  margin-bottom: 8px;
-}
-
-.col-item p {
-  font-size: 0.9rem;
-  color: var(--fg-muted);
-  line-height: 1.6;
-}
-
-/* ── Threat model table ───────────────────────────────────────────────── */
-.threat-grid {
-  margin-top: 40px;
-  display: grid;
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.threat-row {
-  display: grid;
-  grid-template-columns: 1fr 2fr auto;
-  gap: 0;
-  background: var(--bg);
-  align-items: center;
-}
-
-.threat-row.header {
-  background: var(--surface);
-  align-items: center;
-}
-
-.threat-cell {
-  padding: 16px 20px;
-  font-size: 0.85rem;
-  border-right: 1px solid var(--border);
-  min-width: 0;
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.threat-cell:last-child {
-  border-right: none;
-  align-items: center;
-  justify-content: center;
-}
-
-.threat-row.header .threat-cell {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--fg-muted);
-}
-
-.threat-cell strong { color: var(--fg); font-weight: 500; }
-.threat-cell p { color: var(--fg-muted); font-size: 0.83rem; margin-top: 2px; }
-
-.tag {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 3px 8px;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-
-.tag-mitigated { background: #0d2e1a; color: #4eaa72; border: 1px solid #1a4d2d; }
-.tag-partial   { background: #2a1e08; color: #c89040; border: 1px solid #4a3510; }
-.tag-scoped    { background: #0d1e30; color: #4a86c4; border: 1px solid #1a3555; }
-
-/* ── Stack list ───────────────────────────────────────────────────────── */
-.stack-list {
-  margin-top: 40px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.stack-item {
-  background: var(--bg);
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.stack-item-role {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--fg-dim);
-}
-
-.stack-item-name {
-  font-size: 0.88rem;
+h3 {
+  font-family: var(--mono);
+  font-size: 1rem;
   font-weight: 500;
   color: var(--fg);
+  margin: 28px 0 10px;
+}
+p { margin: 0 0 14px; max-width: 68ch; color: var(--fg); }
+p:last-child { margin-bottom: 0; }
+
+/* ── Feature grid ── */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+.feature-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 20px;
+}
+.feature-icon {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: .08em;
+  margin-bottom: 10px;
+}
+.feature-name {
+  font-family: var(--mono);
+  font-size: .85rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.feature-desc {
+  font-size: .82rem;
+  color: var(--fg-muted);
+  line-height: 1.5;
 }
 
-/* ── Footer ───────────────────────────────────────────────────────────── */
-footer {
-  padding-block: 48px;
-  padding-left:  max(24px, env(safe-area-inset-left, 0px));
-  padding-right: max(24px, env(safe-area-inset-right, 0px));
+/* ── Arch cards ── */
+.arch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+.arch-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 24px;
+}
+.arch-card h3 { margin-top: 0; }
+.arch-table { width: 100%; border-collapse: collapse; }
+.arch-table td {
+  font-size: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.arch-table tr:last-child td { border-bottom: none; }
+.arch-table td:first-child {
+  font-family: var(--mono);
+  color: var(--fg-muted);
+  width: 80px;
+  padding-right: 12px;
 }
 
-.footer-inner {
-  max-width: 860px;
-  margin-inline: auto;
+/* ── Code blocks ── */
+pre {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  margin: 14px 0;
+}
+code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--fg);
+}
+p code, li code {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+.cmd-line { color: var(--accent); }
+.comment { color: var(--fg-muted); }
+
+/* ── Steps ── */
+.steps { counter-reset: step; margin: 0; padding: 0; list-style: none; }
+.steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+  min-width: 0;
+}
+.steps li::before {
+  content: counter(step);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.steps li > div { min-width: 0; }
+.steps li strong {
+  display: block;
+  font-family: var(--mono);
+  font-size: .85rem;
+  margin-bottom: 6px;
 }
 
-.footer-name {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.9rem;
+/* ── Table ── */
+.table-wrap { overflow-x: auto; }
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.data th {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
   color: var(--fg-muted);
-  letter-spacing: 0.03em;
+  background: var(--bg2);
 }
+table.data td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  vertical-align: top;
+}
+table.data td:first-child { font-family: var(--mono); }
+table.data tr:last-child td { border-bottom: none; }
 
-.footer-links {
+/* ── Footer ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 28px max(32px, env(safe-area-inset-left, 0px));
   display: flex;
-  gap: 24px;
-  list-style: none;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
-
-.footer-links a {
-  font-size: 0.82rem;
-  color: var(--fg-dim);
-  transition: color 0.15s;
+footer span {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-muted);
 }
-
-.footer-links a:hover { color: var(--fg-muted); text-decoration: none; }
-
-/* ── Responsive ───────────────────────────────────────────────────────── */
-@media (max-width: 680px) {
-  .hero .inner { flex-direction: column-reverse; gap: 40px; }
-  .hero-logo { align-self: flex-start; }
-  .two-col { grid-template-columns: 1fr; gap: 32px; }
-  .threat-row { grid-template-columns: 1fr; align-items: stretch; }
-  .threat-cell { border-right: none; border-bottom: 1px solid var(--border); align-items: flex-start; justify-content: center; }
-  .threat-cell:last-child { border-bottom: none; align-items: flex-start; }
-  .threat-row.header .threat-cell:not(:first-child) { display: none; }
-  .nav-links { gap: 16px; }
-  .nav-links li:not(:last-child) { display: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition: none !important; }
-}
+footer a { color: var(--accent); text-decoration: none; }
 </style>
 
-<!-- ── Nav ──────────────────────────────────────────────────────────────── -->
-<nav>
-  <div class="nav-inner">
-    <a class="nav-logo" href="#">
-      <!-- mini Tux-behind-bars -->
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <ellipse cx="14" cy="16" rx="6" ry="7" fill="#1a1a1a"/>
-        <ellipse cx="14" cy="15.5" rx="4" ry="5" fill="#f5f0e8"/>
-        <circle cx="14" cy="9.5" rx="5" ry="5" fill="#1a1a1a"/>
-        <circle cx="12.2" cy="9" r="1.2" fill="white"/>
-        <circle cx="15.8" cy="9" r="1.2" fill="white"/>
-        <circle cx="12.5" cy="9.2" r="0.55" fill="#1a1a1a"/>
-        <circle cx="16.1" cy="9.2" r="0.55" fill="#1a1a1a"/>
-        <polygon points="14,11 12.8,12 15.2,12" fill="#f0a020"/>
-        <rect x="8" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
-        <rect x="11" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
-        <rect x="15.5" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
-        <rect x="18.5" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
-      </svg>
-      Bastille
-    </a>
-    <ul class="nav-links">
+<!-- HERO -->
+<div class="hero">
+  <div class="page">
+    <div class="hero-eyebrow">Security-hardened live Linux</div>
+    <h1 class="hero-title">Bastille<span>_</span>OS</h1>
+    <p class="hero-sub">A Debian Bookworm live system built for minimal trust: no persistent root, AppArmor + TOMOYO mandatory-access control, OpenRC init, and WireGuard included out of the box. Boots to GNOME on x86_64 and Apple Silicon.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="https://github.com/ker0s3ner/bastille/releases" target="_blank">↓ Download</a>
+      <a class="btn btn-ghost" href="https://github.com/ker0s3ner/bastille" target="_blank">⌥ Source</a>
+    </div>
+    <div class="badges">
+      <span class="badge badge-green">Debian 12 Bookworm</span>
+      <span class="badge badge-green">OpenRC</span>
+      <span class="badge">x86_64</span>
+      <span class="badge">ARM64</span>
+      <span class="badge badge-amber">Live / No install</span>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <nav class="sidenav" aria-label="Page sections">
+    <ul>
+      <li><span class="sidenav-section">Overview</span></li>
       <li><a href="#features">Features</a></li>
-      <li><a href="#threat-model">Threat model</a></li>
-      <li><a href="#stack">Stack</a></li>
-      <li><a href="https://github.com/ker0s3ner/tinfoil-hat-linux" target="_blank" rel="noopener">Source</a></li>
-      <li><a href="https://github.com/ker0s3ner/tinfoil-hat-linux" target="_blank" rel="noopener" class="nav-cta">GitHub →</a></li>
+      <li><a href="#architectures">Architectures</a></li>
+      <li><span class="sidenav-section">Usage</span></li>
+      <li><a href="#quickstart">Quick start</a></li>
+      <li><a href="#boot">Boot options</a></li>
+      <li><span class="sidenav-section">Internals</span></li>
+      <li><a href="#init">Init system</a></li>
+      <li><a href="#security">Security layers</a></li>
+      <li><a href="#vpn">WireGuard</a></li>
+      <li><span class="sidenav-section">Build</span></li>
+      <li><a href="#build">Building locally</a></li>
+      <li><a href="#ci">CI / releases</a></li>
     </ul>
-  </div>
-</nav>
+  </nav>
 
-<!-- ── Hero ─────────────────────────────────────────────────────────────── -->
-<section class="hero">
-  <div class="inner">
-    <div class="hero-text">
-      <p class="hero-eyebrow">Privacy-hardened desktop Linux</p>
-      <h1 class="hero-title">Bastille</h1>
-      <p class="hero-sub">
-        A Debian-based live OS built for people who need their computer to keep secrets.
-        Forced VPN kill-switch, split-key LUKS2 encryption, duress PINs,
-        I2P routing, and hardened firmware defaults — built for people who
-        need operational security that holds under pressure.
-      </p>
-      <div class="hero-actions">
-        <a href="https://github.com/ker0s3ner/tinfoil-hat-linux/releases" target="_blank" rel="noopener" class="btn-primary">
-          Download ISO
-        </a>
-        <a href="https://github.com/ker0s3ner/tinfoil-hat-linux" target="_blank" rel="noopener" class="btn-secondary">
-          View source →
-        </a>
-      </div>
-    </div>
+  <!-- CONTENT -->
+  <main class="content">
 
-    <!-- Tux behind bars -->
-    <div class="hero-logo" aria-label="Bastille: Tux behind bars">
-      <svg width="160" height="200" viewBox="0 0 160 200" xmlns="http://www.w3.org/2000/svg">
-        <!-- body -->
-        <ellipse cx="80" cy="130" rx="42" ry="52" fill="#111111"/>
-        <!-- belly -->
-        <ellipse cx="80" cy="128" rx="26" ry="36" fill="#f0ece0"/>
-        <!-- head -->
-        <circle cx="80" cy="68" r="34" fill="#111111"/>
-        <!-- eyes -->
-        <circle cx="68" cy="62" r="8" fill="white"/>
-        <circle cx="92" cy="62" r="8" fill="white"/>
-        <circle cx="70" cy="63" r="3.5" fill="#111111"/>
-        <circle cx="94" cy="63" r="3.5" fill="#111111"/>
-        <circle cx="71" cy="62" r="1.2" fill="white"/>
-        <circle cx="95" cy="62" r="1.2" fill="white"/>
-        <!-- beak -->
-        <polygon points="80,72 73,80 87,80" fill="#f0a020"/>
-        <!-- feet -->
-        <ellipse cx="66" cy="182" rx="12" ry="6" fill="#f0a020"/>
-        <ellipse cx="94" cy="182" rx="12" ry="6" fill="#f0a020"/>
-        <!-- wings -->
-        <ellipse cx="38" cy="128" rx="12" ry="28" fill="#111111" transform="rotate(-10 38 128)"/>
-        <ellipse cx="122" cy="128" rx="12" ry="28" fill="#111111" transform="rotate(10 122 128)"/>
-        <!-- bars -->
-        <rect x="14"  y="0" width="11" height="200" rx="5.5" fill="#4f8fd4"/>
-        <rect x="44"  y="0" width="11" height="200" rx="5.5" fill="#4f8fd4"/>
-        <rect x="95"  y="0" width="11" height="200" rx="5.5" fill="#4f8fd4"/>
-        <rect x="125" y="0" width="11" height="200" rx="5.5" fill="#4f8fd4"/>
-        <!-- crossbars -->
-        <rect x="10" y="28"  width="140" height="8" rx="4" fill="#3a6fa0" opacity="0.6"/>
-        <rect x="10" y="164" width="140" height="8" rx="4" fill="#3a6fa0" opacity="0.6"/>
-      </svg>
-    </div>
-  </div>
-</section>
+    <section class="section" id="features">
+      <div class="section-label">Overview</div>
+      <h2>What Bastille gives you</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">[ init ]</div>
+          <div class="feature-name">OpenRC</div>
+          <div class="feature-desc">Lightweight, reliable service management with no systemd dependency. elogind provides the logind interface for GNOME and PolicyKit.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">[ mac ]</div>
+          <div class="feature-name">Dual MAC</div>
+          <div class="feature-desc">AppArmor and TOMOYO Linux both active at boot. AppArmor profiles cover the browser and network daemons; TOMOYO provides domain-based path control.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">[ vpn ]</div>
+          <div class="feature-name">WireGuard</div>
+          <div class="feature-desc">WireGuard kernel module and <code>wg-quick</code> included. An OpenRC init script manages tunnel bring-up on boot via <code>/etc/wireguard/wg0.conf</code>.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">[ user ]</div>
+          <div class="feature-name">No escalation</div>
+          <div class="feature-desc">The live user account has no sudo access by design. System daemons run as dedicated service accounts. Privilege boundary is enforced at the account level.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">[ ui ]</div>
+          <div class="feature-name">GNOME 43 + greetd</div>
+          <div class="feature-desc">Full GNOME Shell desktop with mutter compositing on X11. greetd manages session handoff — configurable, no display manager daemon overhead.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">[ live ]</div>
+          <div class="feature-name">Live / amnesic</div>
+          <div class="feature-desc">Boots entirely from a squashfs overlay. Nothing writes to disk unless explicitly configured. Suitable for air-gapped or untrusted hardware use.</div>
+        </div>
+      </div>
+    </section>
 
-<!-- ── About ─────────────────────────────────────────────────────────────── -->
-<section class="section" id="about">
-  <div class="inner">
-    <p class="section-label">About</p>
-    <h2 class="section-title">The OS that doesn't trust the network, the hardware, or you.</h2>
-    <div class="section-body">
-      <p>
-        Bastille is a spiritual successor to the 2002 Shmoo Group <em>Tinfoil Hat Linux</em> floppy distro —
-        updated for a threat landscape that includes hardware-level attacks, forensic extraction tools,
-        and always-on adversarial networks. It runs as a live system off USB, boots entirely to RAM,
-        and leaves nothing on the host machine when you remove the drive.
-      </p>
-      <p>
-        Every design decision assumes the worst case: the network is hostile, the USB port is a weapon,
-        and physical access to the device is a real possibility. Bastille is not a convenience OS.
-        It is built for people who need operational security that holds under pressure.
-      </p>
-      <p>
-        The desktop is GNOME on Wayland. This is a deliberate usability trade-off: GNOME brings a
-        larger attack surface than a minimal tiling compositor (more daemons, a file indexer, a portal
-        layer). AppArmor profiles, dconf policy locks, and no-sudo user accounts are the compensating
-        controls. If you need a smaller surface, the build is modular — swap the desktop package list
-        and the GNOME hook.
-      </p>
-      <p>
-        The build is fully reproducible from source using <strong>live-build</strong> on a Debian host.
-        No binary blobs are added after the Debian base. Every configuration file, hook, and
-        compiled component is in the repository.
-      </p>
-    </div>
-  </div>
-</section>
+    <section class="section" id="architectures">
+      <div class="section-label">Architectures</div>
+      <h2>Platform support</h2>
+      <div class="arch-grid">
+        <div class="arch-card">
+          <h3>x86_64 (amd64)</h3>
+          <table class="arch-table">
+            <tr><td>Kernel</td><td>Debian 6.1 LTS</td></tr>
+            <tr><td>Boot</td><td>GRUB EFI + BIOS hybrid</td></tr>
+            <tr><td>GPU</td><td>modesetting, Intel, AMD</td></tr>
+            <tr><td>Build</td><td><code>ubuntu-24.04</code> runner</td></tr>
+          </table>
+        </div>
+        <div class="arch-card">
+          <h3>ARM64 (aarch64)</h3>
+          <table class="arch-table">
+            <tr><td>Kernel</td><td>Debian 6.1 LTS arm64</td></tr>
+            <tr><td>Boot</td><td>GRUB EFI (bootaa64.efi)</td></tr>
+            <tr><td>GPU</td><td>fbdev (EFI framebuffer)</td></tr>
+            <tr><td>Build</td><td><code>ubuntu-24.04-arm</code> runner</td></tr>
+            <tr><td>Tested</td><td>VirtualBox ARM64 (Apple M-series)</td></tr>
+          </table>
+        </div>
+      </div>
+    </section>
 
-<!-- ── Features ──────────────────────────────────────────────────────────── -->
-<section class="section" id="features">
-  <div class="inner">
-    <p class="section-label">Features</p>
-    <h2 class="section-title">Secure defaults. Hostile assumptions. Nothing left to configure.</h2>
+    <section class="section" id="quickstart">
+      <div class="section-label">Usage</div>
+      <h2>Quick start</h2>
+      <ol class="steps">
+        <li>
+          <div>
+            <strong>Download the ISO</strong>
+            Go to <a href="https://github.com/ker0s3ner/bastille/releases" target="_blank">Releases</a> and grab the latest ISO for your architecture. Verify with the attached <code>.sha256</code> file.
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Write to USB (bare metal)</strong>
+<pre><code><span class="comment"># Linux / macOS — replace /dev/sdX with your drive</span>
+<span class="cmd-line">$ sudo dd if=bastille.iso of=/dev/sdX bs=4M status=progress conv=fsync</span></code></pre>
+            On macOS use <code>diskutil unmountDisk /dev/diskN</code> first.
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Or mount in a VM</strong>
+            Attach the ISO as a virtual optical drive. For VirtualBox ARM64: use a VirtioSCSI controller, set type to DVD. Enable EFI in the VM firmware settings.
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Boot</strong>
+            Select the <em>Live system</em> entry from the GRUB menu. greetd starts the GNOME session automatically for the <code>user</code> account. No password is set on the live user.
+          </div>
+        </li>
+      </ol>
+    </section>
 
-    <div class="two-col">
-      <div class="col-item">
-        <p class="col-item-label">Network</p>
-        <p class="col-item-title">VPN kill-switch + HTTPS enforcement</p>
-        <p>All traffic is routed through WireGuard. nftables drops everything if the tunnel is down. Plain-HTTP connections are rejected at the firewall. DNS is locked to the system stub resolver. Firefox ships with a managed policy that disables and locks DoH — browsers without a managed policy can still bypass the resolver via port-443 DoH, so only use browsers covered by an enterprise policy.</p>
+    <section class="section" id="boot">
+      <h2>Boot parameters</h2>
+      <p>These kernel parameters are set in GRUB and can be edited at boot time (press <code>e</code> on the menu entry).</p>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th>Parameter</th><th>Default</th><th>Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>boot=live</td><td>set</td><td>Activates live-boot initramfs overlay</td></tr>
+            <tr><td>components</td><td>set</td><td>Loads all live-boot components</td></tr>
+            <tr><td>username</td><td>user</td><td>Live user account name</td></tr>
+            <tr><td>hostname</td><td>bastille</td><td>System hostname</td></tr>
+            <tr><td>loglevel</td><td>7</td><td>Kernel log verbosity (reduce to 3 for quiet boot)</td></tr>
+            <tr><td>console</td><td>tty0 + ttyAMA0</td><td>ARM64: ttyAMA0 is primary console for serial logging</td></tr>
+          </tbody>
+        </table>
       </div>
-      <div class="col-item">
-        <p class="col-item-label">Storage</p>
-        <p class="col-item-title">Split-key LUKS2 encryption</p>
-        <p>Bastille supports an <strong>optional persistent encrypted partition</strong> on the same USB drive (the live system itself boots to RAM and leaves nothing on the host). The persistent partition is LUKS2 with Argon2id. The master key is derived from the user's passphrase at unlock time — one keyslot holds the full derived key in the kernel's logon keyring (write-once, not readable from userspace after boot). Locking the screen evicts that keyslot from the keyring; the partition cannot be read again without re-entering the passphrase. "Split-key" refers to the keyring+passphrase combination required to reconstruct access, not to two independent key halves.</p>
-      </div>
-      <div class="col-item">
-        <p class="col-item-label">Access</p>
-        <p class="col-item-title">Duress PINs with decoy profiles</p>
-        <p>The session auto-logs in on boot — the screen never shows a login prompt, so no PIN is exposed at startup. Duress PINs apply at <strong>screen unlock</strong> only: normal unlock, decoy unlock (opens a sanitised profile; hard to distinguish at the PAM layer, though a forensic examiner may detect a second profile exists), and wipe unlock (overwrites key material and powers off without flushing disk). PIN verification is constant-time.</p>
-        <p style="font-size:0.82rem;color:var(--danger);margin-top:8px;">⚠ Legal note: in some jurisdictions, using a wipe PIN in response to a lawful demand may constitute destruction of evidence. Know your local law before enabling this feature.</p>
-      </div>
-      <div class="col-item">
-        <p class="col-item-label">USB</p>
-        <p class="col-item-title">USB control and counter-response</p>
-        <p>USBGuard runs in default-deny mode: any newly connected HID device is blocked until explicitly authorised. This is the primary BadUSB control. A secondary rate-monitor watches for bursts above 40 events per 100 ms (a slow implant stays under this threshold, and a fast legitimate keyboard could exceed it — the rate check is a backup layer, not the gate). On either trigger: de-authorise, evict LUKS keys, shred key material. VID:PID signature matching is also included but is spoofable and treated as supplementary.</p>
-      </div>
-      <div class="col-item">
-        <p class="col-item-label">Firmware</p>
-        <p class="col-item-title">Sub-ring-0 neutralisation</p>
-        <p>Intel ME is stripped to the HAP bit via <code>me_cleaner</code> where supported. KVM modules are blacklisted at boot. S3 suspend (the SMM attack surface) is disabled. IOMMU is enforced in strict mode. A firmware audit service runs at boot and logs the result.</p>
-        <p style="font-size:0.82rem;color:var(--fg-muted);margin-top:8px;">Requires external SPI flashing. Does not work on machines with Intel Boot Guard; check your hardware before flashing.</p>
-      </div>
-      <div class="col-item">
-        <p class="col-item-label">Physical</p>
-        <p class="col-item-title">Vision and focus guard <span style="font-size:0.7rem;color:var(--fg-dim);font-family:var(--font-mono);letter-spacing:0.06em;text-transform:uppercase;margin-left:6px;">Opt-in</span></p>
-        <p>Camera-based face detection (Haar cascade, 5 fps) provides a best-effort presence check: screen locks if your face leaves the frame for ten seconds; dims to 5% if a second face appears. Disabled by default — an active camera is its own attack surface. Enable in Bastille Settings if you want it.</p>
-      </div>
-      <div class="col-item">
-        <p class="col-item-label">Anonymity</p>
-        <p class="col-item-title">I2P routing</p>
-        <p>i2pd runs inside the WireGuard tunnel. SOCKS5 and HTTP proxies are available on localhost for applications that support them. Traffic routed through I2P is end-to-end encrypted across the I2P network before reaching the VPN.</p>
-      </div>
-      <div class="col-item">
-        <p class="col-item-label">Memory</p>
-        <p class="col-item-title">Minimal RAM footprint</p>
-        <p>Key material uses <code>sodium_malloc</code> with <code>mlock</code>. Page cache is scrubbed every five minutes via <code>drop_caches</code>. Transparent hugepages are disabled. <code>vm.swappiness=0</code> prevents sensitive pages from being paged out.</p>
-      </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<!-- ── Threat model ───────────────────────────────────────────────────────── -->
-<section class="section" id="threat-model">
-  <div class="inner">
-    <p class="section-label">Threat model</p>
-    <h2 class="section-title">What Bastille protects against.</h2>
-    <div class="section-body">
-      <p>
-        Bastille is designed for people under active adversarial pressure — border crossings,
-        device seizure, network interception. It does not protect against a fully compromised
-        supply chain or a nation-state with physical access to the CPU die.
-      </p>
-      <p>
-        The live OS boots entirely to RAM and leaves no artefacts on the host machine.
-        An optional persistent encrypted partition on the same USB drive stores user data;
-        the BFU/AFU threat model rows below apply when that partition is in use.
-        Without it, powering off the device destroys all session state.
-      </p>
-    </div>
+    <section class="section" id="init">
+      <div class="section-label">Internals</div>
+      <h2>Init system — OpenRC</h2>
+      <p>Bastille uses <strong>OpenRC</strong> with <code>sysvinit-core</code> as PID 1. systemd is not present. Service ordering is managed by OpenRC runlevels.</p>
+      <h3>Runlevel assignments</h3>
+<pre><code><span class="comment"># sysinit runlevel</span>
+udev            → sysinit
+udev-trigger    → sysinit
 
-    <div class="threat-grid" role="table" aria-label="Threat model">
-      <div class="threat-row header" role="row">
-        <div class="threat-cell" role="columnheader">Threat</div>
-        <div class="threat-cell" role="columnheader">Mitigation</div>
-        <div class="threat-cell" role="columnheader">Status</div>
-      </div>
-      <div class="threat-row" role="row">
-        <div class="threat-cell" role="cell"><strong>Network interception</strong><p>Passive or active MITM on hostile Wi-Fi or mobile network</p></div>
-        <div class="threat-cell" role="cell">WireGuard kill-switch; HTTPS-only enforcement; DNS over TLS locked to stub resolver</div>
-        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
-      </div>
-      <div class="threat-row" role="row">
-        <div class="threat-cell" role="cell"><strong>Disk forensics (BFU)</strong><p>Device powered off; attacker reads raw storage</p></div>
-        <div class="threat-cell" role="cell">LUKS2 Argon2id (1 GB memory cost); no key material on disk without both halves present</div>
-        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
-      </div>
-      <div class="threat-row" role="row">
-        <div class="threat-cell" role="cell"><strong>Live forensics (AFU)</strong><p>Cellebrite UFED or equivalent; device powered on and screen locked</p></div>
-        <div class="threat-cell" role="cell">Screen lock evicts RAM key half; IOMMU blocks DMA; USB HID-rate monitor shreds keys on suspicious device connection; VID:PID matching is supplementary (spoofable)</div>
-        <div class="threat-cell" role="cell"><span class="tag tag-partial">Reduced</span></div>
-      </div>
-      <div class="threat-row" role="row">
-        <div class="threat-cell" role="cell"><strong>Coerced unlock</strong><p>User forced to provide credentials under duress</p></div>
-        <div class="threat-cell" role="cell">Duress PIN opens decoy profile or triggers full wipe; hard to distinguish at the PAM layer, though a second profile may be detectable by a forensic examiner</div>
-        <div class="threat-cell" role="cell"><span class="tag tag-partial">Reduced</span></div>
-      </div>
-      <div class="threat-row" role="row">
-        <div class="threat-cell" role="cell"><strong>BadUSB / O.MG cable</strong><p>HID emulation device injecting keystrokes</p></div>
-        <div class="threat-cell" role="cell">USBGuard default-deny blocks all new HID devices; secondary rate monitor triggers de-authorisation on bursts &gt;40 events/100 ms; LUKS keys evicted on detection</div>
-        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
-      </div>
-      <div class="threat-row" role="row">
-        <div class="threat-cell" role="cell"><strong>Firmware-level persistence</strong><p>Intel ME / SMM rootkit</p></div>
-        <div class="threat-cell" role="cell">ME stripped to HAP bit; SMM S3 disabled; KVM blacklisted; requires hardware-specific flashrom support</div>
-        <div class="threat-cell" role="cell"><span class="tag tag-partial">Partial</span></div>
-      </div>
-      <div class="threat-row" role="row">
-        <div class="threat-cell" role="cell"><strong>Shoulder surfing</strong><p>Screen observed by a bystander</p></div>
-        <div class="threat-cell" role="cell">Vision guard (opt-in) dims screen to 5% when a second face is detected; Haar cascade at 5 fps provides best-effort detection only</div>
-        <div class="threat-cell" role="cell"><span class="tag tag-partial">Reduced</span></div>
-      </div>
-      <div class="threat-row" role="row">
-        <div class="threat-cell" role="cell"><strong>Browser fingerprinting</strong><p>Tracking via browser characteristics</p></div>
-        <div class="threat-cell" role="cell">Browser allowlist enforced via AppArmor; I2P routing available</div>
-        <div class="threat-cell" role="cell"><span class="tag tag-scoped">Scoped</span></div>
-      </div>
-    </div>
-  </div>
-</section>
+<span class="comment"># default runlevel (multi-user)</span>
+elogind         → default   <span class="comment"># logind replacement for GNOME/PolicyKit</span>
+dbus            → default
+NetworkManager  → default
+greetd          → default   <span class="comment"># session greeter</span>
+wg-quick        → default   <span class="comment"># optional; enable per-interface symlink</span></code></pre>
+      <h3>elogind</h3>
+      <p><code>elogind</code> provides the <code>org.freedesktop.login1</code> D-Bus interface that GNOME Shell, PolicyKit, and NetworkManager depend on. It is a drop-in replacement for systemd-logind with no other systemd components required.</p>
+    </section>
 
-<!-- ── Stack ──────────────────────────────────────────────────────────────── -->
-<section class="section" id="stack">
-  <div class="inner">
-    <p class="section-label">Technical stack</p>
-    <h2 class="section-title">What it's built from.</h2>
+    <section class="section" id="security">
+      <h2>Security layers</h2>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th>Layer</th><th>Mechanism</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>AppArmor</td><td>LSM profile-based MAC</td><td>Enforcing at boot; profiles for browser, cups, daemons</td></tr>
+            <tr><td>TOMOYO</td><td>LSM domain/path MAC</td><td>Initialized in learning mode; harden after policy review</td></tr>
+            <tr><td>No-sudo</td><td>Account policy</td><td><code>user</code> is not in sudoers; no password escalation path</td></tr>
+            <tr><td>Live overlay</td><td>OverlayFS on tmpfs</td><td>All writes are in-memory; lost on reboot by default</td></tr>
+            <tr><td>Kernel hardening</td><td>Debian hardened flags</td><td>PIE, stack-protector, RELRO, ASLR enabled</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-    <div class="stack-list">
-      <div class="stack-item"><span class="stack-item-role">Base</span><span class="stack-item-name">Debian Bookworm (live-build) — Trixie migration planned</span></div>
-      <div class="stack-item"><span class="stack-item-role">Desktop</span><span class="stack-item-name">GNOME / Wayland</span></div>
-      <div class="stack-item"><span class="stack-item-role">Login</span><span class="stack-item-name">GDM3 (autologin, dconf-locked)</span></div>
-      <div class="stack-item"><span class="stack-item-role">VPN</span><span class="stack-item-name">WireGuard (in-kernel)</span></div>
-      <div class="stack-item"><span class="stack-item-role">Firewall</span><span class="stack-item-name">nftables (default DROP)</span></div>
-      <div class="stack-item"><span class="stack-item-role">DNS</span><span class="stack-item-name">systemd-resolved (DoT + DNSSEC)</span></div>
-      <div class="stack-item"><span class="stack-item-role">Anonymity</span><span class="stack-item-name">i2pd (C++ I2P router)</span></div>
-      <div class="stack-item"><span class="stack-item-role">Encryption</span><span class="stack-item-name">LUKS2 + Argon2id</span></div>
-      <div class="stack-item"><span class="stack-item-role">Crypto</span><span class="stack-item-name">libsodium</span></div>
-      <div class="stack-item"><span class="stack-item-role">Key storage</span><span class="stack-item-name">Kernel logon keyring</span></div>
-      <div class="stack-item"><span class="stack-item-role">Auth</span><span class="stack-item-name">PAM (pam_thl_duress.so)</span></div>
-      <div class="stack-item"><span class="stack-item-role">Isolation</span><span class="stack-item-name">AppArmor + USBGuard</span></div>
-      <div class="stack-item"><span class="stack-item-role">IOMMU</span><span class="stack-item-name">Intel VT-d / AMD-Vi (strict)</span></div>
-      <div class="stack-item"><span class="stack-item-role">Kernel</span><span class="stack-item-name">lockdown=confidentiality</span></div>
-      <div class="stack-item"><span class="stack-item-role">Firmware</span><span class="stack-item-name">me_cleaner + flashrom</span></div>
-      <div class="stack-item"><span class="stack-item-role">Vision</span><span class="stack-item-name">OpenCV (Haar cascade)</span></div>
-    </div>
-  </div>
-</section>
+    <section class="section" id="vpn">
+      <h2>WireGuard VPN</h2>
+      <p>WireGuard is included in the kernel and managed by an OpenRC init script at <code>/etc/init.d/wg-quick</code>. To activate an interface:</p>
+<pre><code><span class="comment"># Place your config at /etc/wireguard/wg0.conf, then:</span>
+<span class="cmd-line">rc-update add wg-quick.wg0 default</span>
+<span class="cmd-line">rc-service wg-quick.wg0 start</span></code></pre>
+      <p>The init script handles bring-up and teardown via <code>wg-quick up / down</code>. Multiple tunnels are supported — create one symlink per interface name.</p>
+    </section>
 
-<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+    <section class="section" id="build">
+      <div class="section-label">Build</div>
+      <h2>Building locally</h2>
+      <p>Requires Docker (for reproducible Debian chroot) and <code>squashfs-tools</code> + <code>xorriso</code> on the host.</p>
+<pre><code><span class="cmd-line">git clone https://github.com/ker0s3ner/bastille.git</span>
+<span class="cmd-line">cd bastille</span>
+
+<span class="comment"># x86_64</span>
+<span class="cmd-line">bash build.sh</span>
+
+<span class="comment"># ARM64 (cross-build from Apple Silicon or native ARM runner)</span>
+<span class="cmd-line">bash build-arm64-local.sh</span></code></pre>
+      <p>The build takes approximately 25–40 minutes depending on mirror speed. Output ISOs land in <code>build/</code>.</p>
+    </section>
+
+    <section class="section" id="ci">
+      <h2>CI / Releases</h2>
+      <p>GitHub Actions builds both architectures on every manual trigger via <code>workflow_dispatch</code>. Release artifacts are uploaded to GitHub Releases with SHA-256 checksums.</p>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th>Workflow</th><th>Runner</th><th>Output</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>build-iso.yml</td><td>ubuntu-24.04</td><td>live-image-amd64.hybrid.iso</td></tr>
+            <tr><td>build-iso-arm64.yml</td><td>ubuntu-24.04-arm</td><td>live-image-arm64.hybrid.iso</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Trigger a build from the <a href="https://github.com/ker0s3ner/bastille/actions" target="_blank">Actions tab</a> → select the workflow → <em>Run workflow</em>.</p>
+    </section>
+
+  </main>
+</div>
+</div>
+
 <footer>
-  <div class="footer-inner">
-    <span class="footer-name">Bastille</span>
-    <ul class="footer-links">
-      <li><a href="https://github.com/ker0s3ner/tinfoil-hat-linux" target="_blank" rel="noopener">GitHub</a></li>
-      <li><a href="https://github.com/ker0s3ner/tinfoil-hat-linux/releases" target="_blank" rel="noopener">Releases</a></li>
-      <li><a href="https://github.com/ker0s3ner/tinfoil-hat-linux/issues" target="_blank" rel="noopener">Issues</a></li>
-    </ul>
-  </div>
+  <span>Bastille OS — Debian Bookworm live</span>
+  <span><a href="https://github.com/ker0s3ner/bastille" target="_blank">github.com/ker0s3ner/bastille</a></span>
 </footer>
+
+<script>
+// Highlight active nav link on scroll
+const links = document.querySelectorAll('.sidenav a[href^="#"]');
+const sections = Array.from(links).map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const a = document.querySelector(`.sidenav a[href="#${e.target.id}"]`);
+      if (a) a.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+sections.forEach(s => obs.observe(s));
+</script>
