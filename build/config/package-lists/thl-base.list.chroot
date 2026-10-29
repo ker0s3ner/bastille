@@ -24,8 +24,9 @@ gnome-terminal
 gnome-keyring
 nautilus
 
-# Greeter (greetd daemon; gtkgreet installed via hook from GitHub release)
+# Greeter (greetd daemon + tuigreet from bookworm-backports)
 greetd
+tuigreet
 
 # GPU drivers — Intel (amd64 only; arm64 workflow strips intel packages) and AMD
 xserver-xorg-video-amdgpu

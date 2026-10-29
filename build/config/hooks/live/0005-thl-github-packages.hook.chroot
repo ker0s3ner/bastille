@@ -1,12 +1,18 @@
 #!/bin/bash
-# Install packages not in Debian 12 stable: fastfetch, gtkgreet
+# Install packages not in Debian 12 stable:
+#   - fastfetch (from GitHub releases .deb)
+#   - tuigreet  (from bookworm-backports, already in archives list; this is a safety belt)
 set -euo pipefail
 
 ARCH=$(dpkg --print-architecture)
 
 # ── fastfetch ─────────────────────────────────────────────────────────────────
-# Not in Debian 12 stable; fetch latest .deb from GitHub releases
 install_fastfetch() {
+    if command -v fastfetch >/dev/null 2>&1; then
+        echo "[fastfetch] already installed, skipping"
+        return 0
+    fi
+
     local api_url="https://api.github.com/repos/fastfetch-cli/fastfetch/releases/latest"
     local tmpdir
     tmpdir=$(mktemp -d)
@@ -15,26 +21,33 @@ install_fastfetch() {
     local release_json
     release_json=$(curl -fsSL "$api_url")
 
-    # Pick the right .deb asset for this arch
     local deb_name
     case "$ARCH" in
         amd64) deb_name="fastfetch-linux-amd64.deb" ;;
         arm64) deb_name="fastfetch-linux-aarch64.deb" ;;
-        *)     echo "[fastfetch] unsupported arch $ARCH, skipping"; return 0 ;;
+        *)     echo "[fastfetch] unsupported arch $ARCH, skipping"; rm -rf "$tmpdir"; return 0 ;;
     esac
 
+    local tmpjson
+    tmpjson=$(mktemp)
+    echo "$release_json" > "$tmpjson"
+
     local deb_url
-    deb_url=$(echo "$release_json" | python3 -c "
+    deb_url=$(python3 - "$tmpjson" "$deb_name" <<'PYEOF'
 import sys, json
-data = json.load(sys.stdin)
+with open(sys.argv[1]) as f:
+    data = json.load(f)
 for a in data.get('assets', []):
-    if a['name'] == '$deb_name':
+    if a['name'] == sys.argv[2]:
         print(a['browser_download_url'])
         break
-")
+PYEOF
+) || deb_url=""
+    rm -f "$tmpjson"
 
     if [ -z "$deb_url" ]; then
-        echo "[fastfetch] could not find $deb_name in latest release, skipping"
+        echo "[fastfetch] could not parse release JSON, skipping"
+        rm -rf "$tmpdir"
         return 0
     fi
 
@@ -45,54 +58,18 @@ for a in data.get('assets', []):
     echo "[fastfetch] installed OK"
 }
 
-# ── gtkgreet ──────────────────────────────────────────────────────────────────
-# greetd-gtkgreet not in Debian 12 stable; fetch .deb from GitHub (any-arch binary)
-install_gtkgreet() {
-    local api_url="https://api.github.com/repos/duncte123/gtkgreet-deb/releases/latest"
-    local tmpdir
-    tmpdir=$(mktemp -d)
-
-    echo "[gtkgreet] fetching latest release info..."
-    local release_json
-    release_json=$(curl -fsSL "$api_url" 2>/dev/null) || {
-        echo "[gtkgreet] GitHub release fetch failed, trying apt backports..."
-        apt-get install -y -t bookworm-backports greetd-gtkgreet 2>/dev/null || \
-            echo "[gtkgreet] not available from backports either; greeter will fall back to agreety"
+# ── tuigreet (safety belt) ────────────────────────────────────────────────────
+# bookworm-backports is already in archives/backports.list.chroot so apt should
+# find it during the package-install phase. This runs after that phase and ensures
+# it's present; if it was already installed this is a fast no-op.
+ensure_tuigreet() {
+    if command -v tuigreet >/dev/null 2>&1; then
+        echo "[tuigreet] already installed"
         return 0
-    }
-
-    local deb_url
-    deb_url=$(echo "$release_json" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-assets = data.get('assets', [])
-# prefer arch-specific, fall back to all/any
-for a in assets:
-    if '$ARCH' in a['name'] and a['name'].endswith('.deb'):
-        print(a['browser_download_url']); break
-else:
-    for a in assets:
-        if a['name'].endswith('.deb'):
-            print(a['browser_download_url']); break
-" 2>/dev/null)
-
-    if [ -n "$deb_url" ]; then
-        echo "[gtkgreet] downloading $deb_url"
-        curl -fsSL -o "$tmpdir/gtkgreet.deb" "$deb_url"
-        dpkg -i "$tmpdir/gtkgreet.deb" || apt-get install -f -y
-        rm -rf "$tmpdir"
-        echo "[gtkgreet] installed OK"
-    else
-        # Fallback: try backports
-        echo "[gtkgreet] no suitable .deb asset found, trying backports..."
-        apt-get install -y -t bookworm-backports greetd-gtkgreet 2>/dev/null || {
-            echo "[gtkgreet] not in backports; updating greetd config to use agreety fallback"
-            sed -i 's|command = "gtkgreet.*|command = "agreety --cmd gnome-session"|' \
-                /etc/greetd/config.toml 2>/dev/null || true
-        }
-        rm -rf "$tmpdir"
     fi
+    echo "[tuigreet] installing from backports..."
+    apt-get install -y -t bookworm-backports tuigreet
 }
 
 install_fastfetch
-install_gtkgreet
+ensure_tuigreet
