@@ -1,0 +1,478 @@
+<title>Build &amp; CI — Bastille</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root {
+  --bg:           #0b0c10;
+  --surface:      #13151e;
+  --border:       #1d2032;
+  --border-hi:    #2d3250;
+  --fg:           #dde3f0;
+  --fg-muted:     #626e90;
+  --fg-dim:       #3d4560;
+  --accent:       #4f8fd4;
+  --accent-dim:   #1e3a5f;
+  --danger:       #c04b3a;
+  --font-display: 'Syne', system-ui, sans-serif;
+  --font-body:    'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', 'Courier New', monospace;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+.inner {
+  max-width: 860px;
+  margin-inline: auto;
+  padding-left:  max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
+}
+nav {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 100;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+nav::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--bg);
+  z-index: 101;
+}
+.nav-inner {
+  max-width: 1100px;
+  margin-inline: auto;
+  padding-inline: max(24px, env(safe-area-inset-left, 0px));
+  padding-block: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--fg);
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.nav-logo:hover { text-decoration: none; }
+.nav-logo svg { flex-shrink: 0; }
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  list-style: none;
+}
+.nav-links a {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--fg-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color 0.15s;
+}
+.nav-links a:hover { color: var(--fg); text-decoration: none; }
+.nav-links a.active { color: var(--accent); }
+.nav-cta {
+  font-family: var(--font-mono);
+  font-size: 0.78rem !important;
+  color: var(--accent) !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  padding: 6px 14px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+  transition: border-color 0.15s, background 0.15s !important;
+}
+.nav-cta:hover { background: var(--accent-dim); border-color: var(--accent) !important; }
+.page-hero {
+  padding-block: 64px 56px;
+  border-bottom: 1px solid var(--border);
+}
+.page-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--fg-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.page-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  text-wrap: balance;
+  margin-bottom: 20px;
+}
+.page-sub {
+  font-size: 1rem;
+  color: var(--fg-muted);
+  max-width: 56ch;
+  line-height: 1.65;
+}
+.section {
+  padding-block: 72px;
+  border-bottom: 1px solid var(--border);
+}
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 32px;
+}
+.section-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--fg);
+  text-wrap: balance;
+  margin-bottom: 20px;
+  letter-spacing: -0.01em;
+}
+.section-body { max-width: 65ch; }
+.section-body p { color: var(--fg-muted); margin-bottom: 16px; }
+.section-body p:last-child { margin-bottom: 0; }
+.section-body strong { color: var(--fg); font-weight: 500; }
+.step-list {
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.step {
+  background: var(--bg);
+  padding: 20px 24px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px 20px;
+  align-items: start;
+}
+.step-num {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent);
+  padding-top: 3px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.step-content {}
+.step-title {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--fg);
+  margin-bottom: 4px;
+}
+.step-body {
+  font-size: 0.88rem;
+  color: var(--fg-muted);
+  line-height: 1.6;
+}
+pre {
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 16px;
+  overflow-x: auto;
+}
+code {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--fg);
+  line-height: 1.6;
+}
+p code {
+  background: var(--surface);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+.ci-table {
+  margin-top: 40px;
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ci-row {
+  background: var(--bg);
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+}
+.ci-row.header {
+  background: var(--surface);
+}
+.ci-cell {
+  padding: 14px 18px;
+  font-size: 0.85rem;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+.ci-cell:last-child { border-right: none; }
+.ci-row.header .ci-cell {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.ci-cell strong { color: var(--fg); font-weight: 500; }
+.ci-cell span { color: var(--fg-muted); font-size: 0.83rem; }
+footer {
+  padding-block: 48px;
+  padding-left:  max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
+}
+.footer-inner {
+  max-width: 860px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.footer-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+  letter-spacing: 0.03em;
+}
+.footer-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;
+}
+.footer-links a {
+  font-size: 0.82rem;
+  color: var(--fg-dim);
+  transition: color 0.15s;
+}
+.footer-links a:hover { color: var(--fg-muted); text-decoration: none; }
+@media (max-width: 680px) {
+  .ci-row { grid-template-columns: 1fr; }
+  .ci-cell { border-right: none; border-bottom: 1px solid var(--border); }
+  .ci-cell:last-child { border-bottom: none; }
+  .ci-row.header .ci-cell:not(:first-child) { display: none; }
+  .nav-links { gap: 16px; }
+  .nav-links li:not(:last-child) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+}
+</style>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="index.html">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <ellipse cx="14" cy="16" rx="6" ry="7" fill="#1a1a1a"/>
+        <ellipse cx="14" cy="15.5" rx="4" ry="5" fill="#f5f0e8"/>
+        <circle cx="14" cy="9.5" rx="5" ry="5" fill="#1a1a1a"/>
+        <circle cx="12.2" cy="9" r="1.2" fill="white"/>
+        <circle cx="15.8" cy="9" r="1.2" fill="white"/>
+        <circle cx="12.5" cy="9.2" r="0.55" fill="#1a1a1a"/>
+        <circle cx="16.1" cy="9.2" r="0.55" fill="#1a1a1a"/>
+        <polygon points="14,11 12.8,12 15.2,12" fill="#f0a020"/>
+        <rect x="8" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+        <rect x="11" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+        <rect x="15.5" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+        <rect x="18.5" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+      </svg>
+      Bastille
+    </a>
+    <ul class="nav-links">
+      <li><a href="features.html">Features</a></li>
+      <li><a href="threat-model.html">Threat model</a></li>
+      <li><a href="build.html" class="active">Build</a></li>
+      <li><a href="https://github.com/ker0s3ner/bastille" target="_blank" rel="noopener">Source</a></li>
+      <li><a href="https://github.com/ker0s3ner/bastille/releases" target="_blank" rel="noopener" class="nav-cta">GitHub →</a></li>
+    </ul>
+  </div>
+</nav>
+
+<section class="page-hero">
+  <div class="inner">
+    <p class="page-eyebrow">Bastille / Build &amp; CI</p>
+    <h1 class="page-title">Build locally<br>or in the cloud.</h1>
+    <p class="page-sub">
+      Reproducible builds via Docker + live-build. GitHub Actions pipelines for both
+      x86_64 and ARM64, producing hybrid ISO artifacts on every push.
+    </p>
+  </div>
+</section>
+
+<section class="section" id="local">
+  <div class="inner">
+    <p class="section-label">Local build</p>
+    <h2 class="section-title">Build from source with Docker.</h2>
+    <div class="section-body">
+      <p>
+        The build runs entirely in a Debian container — no host-side dependencies beyond
+        Docker. The <code>Dockerfile.build</code> at the repo root sets up live-build and
+        all required packages. Output is a hybrid ISO at <code>build/live-image-*.iso</code>.
+      </p>
+    </div>
+
+    <div class="step-list">
+      <div class="step">
+        <span class="step-num">01</span>
+        <div class="step-content">
+          <p class="step-title">Clone the repository</p>
+          <pre><code>git clone https://github.com/ker0s3ner/bastille.git
+cd bastille</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">02</span>
+        <div class="step-content">
+          <p class="step-title">Build the Docker image</p>
+          <pre><code>docker build -f Dockerfile.build -t bastille-builder .</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">03</span>
+        <div class="step-content">
+          <p class="step-title">Run the build</p>
+          <div class="step-body">Pass the target architecture via <code>ARCH</code>. The build writes the ISO to <code>./build/</code> on the host.</div>
+          <pre><code># x86_64
+docker run --rm --privileged \
+  -v "$(pwd)/build:/build" \
+  bastille-builder amd64
+
+# ARM64
+docker run --rm --privileged \
+  -v "$(pwd)/build:/build" \
+  bastille-builder arm64</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">04</span>
+        <div class="step-content">
+          <p class="step-title">Write to USB</p>
+          <div class="step-body">Replace <code>/dev/sdX</code> with your USB device. This is destructive — verify the target first with <code>lsblk</code>.</div>
+          <pre><code>sudo dd if=build/live-image-amd64.hybrid.iso \
+  of=/dev/sdX bs=4M status=progress
+sync</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="ci">
+  <div class="inner">
+    <p class="section-label">GitHub Actions CI</p>
+    <h2 class="section-title">Two pipelines. Both architectures.</h2>
+    <div class="section-body">
+      <p>
+        Two separate workflow files handle x86_64 and ARM64. Each runs on a native runner —
+        <code>ubuntu-24.04</code> for x86_64 and <code>ubuntu-24.04-arm</code> for ARM64 —
+        so there's no emulation overhead. Both publish a GitHub Release artifact on success.
+      </p>
+      <p>
+        Trigger either workflow from the Actions tab using <strong>workflow_dispatch</strong>,
+        or push to <code>main</code> to run both automatically.
+      </p>
+    </div>
+
+    <div class="ci-table">
+      <div class="ci-row header">
+        <div class="ci-cell">Workflow</div>
+        <div class="ci-cell">Runner</div>
+        <div class="ci-cell">Artifact</div>
+      </div>
+      <div class="ci-row">
+        <div class="ci-cell"><strong>build-iso.yml</strong><br><span>x86_64 build</span></div>
+        <div class="ci-cell"><code>ubuntu-24.04</code></div>
+        <div class="ci-cell"><code>live-image-amd64.hybrid.iso</code></div>
+      </div>
+      <div class="ci-row">
+        <div class="ci-cell"><strong>build-iso-arm64.yml</strong><br><span>ARM64 build</span></div>
+        <div class="ci-cell"><code>ubuntu-24.04-arm</code></div>
+        <div class="ci-cell"><code>live-image-arm64.hybrid.iso</code></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="internals">
+  <div class="inner">
+    <p class="section-label">Internals</p>
+    <h2 class="section-title">How the ISO is structured.</h2>
+    <div class="section-body">
+      <p>
+        Bastille uses Debian's <strong>live-build</strong> toolchain. Configuration lives in
+        <code>build/config/</code>: package lists in <code>package-lists/</code>,
+        chroot hooks in <code>hooks/live/</code>, and static files overlaid at
+        <code>includes.chroot/</code>.
+      </p>
+      <p>
+        The root filesystem is packed into a <strong>squashfs</strong> image
+        (<code>-comp xz -b 1M</code>) and embedded in the ISO alongside the kernel and
+        initrd. On ARM64, live-boot mounts the squashfs over a tmpfs — the system runs
+        entirely in RAM and touches the boot device only for the initial read.
+      </p>
+      <p>
+        The boot chain on ARM64 is EFI-only: <code>grub-efi-arm64</code> loads
+        <code>EFI/boot/bootaa64.efi</code> from <code>boot/grub/efi.img</code>.
+        There is no i386-pc BIOS fallback. The GRUB menu passes
+        <code>boot=live components</code> to live-boot and sets the hostname to
+        <strong>bastille</strong> with user <strong>user</strong>.
+      </p>
+      <p>
+        Init is <strong>OpenRC</strong> with <strong>sysvinit-core</strong> as PID 1.
+        <strong>elogind</strong> replaces systemd-logind for session management under GNOME.
+        The greeter is <strong>greetd</strong> with a custom configuration.
+      </p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <span class="footer-name">Bastille</span>
+    <ul class="footer-links">
+      <li><a href="https://github.com/ker0s3ner/bastille" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/ker0s3ner/bastille/releases" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="https://github.com/ker0s3ner/bastille/issues" target="_blank" rel="noopener">Issues</a></li>
+    </ul>
+  </div>
+</footer>

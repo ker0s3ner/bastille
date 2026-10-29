@@ -1,0 +1,385 @@
+<title>Features — Bastille</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root {
+  --bg:           #0b0c10;
+  --surface:      #13151e;
+  --border:       #1d2032;
+  --border-hi:    #2d3250;
+  --fg:           #dde3f0;
+  --fg-muted:     #626e90;
+  --fg-dim:       #3d4560;
+  --accent:       #4f8fd4;
+  --accent-dim:   #1e3a5f;
+  --danger:       #c04b3a;
+  --font-display: 'Syne', system-ui, sans-serif;
+  --font-body:    'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', 'Courier New', monospace;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+.inner {
+  max-width: 860px;
+  margin-inline: auto;
+  padding-left:  max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
+}
+nav {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 100;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+nav::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--bg);
+  z-index: 101;
+}
+.nav-inner {
+  max-width: 1100px;
+  margin-inline: auto;
+  padding-inline: max(24px, env(safe-area-inset-left, 0px));
+  padding-block: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--fg);
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.nav-logo:hover { text-decoration: none; }
+.nav-logo svg { flex-shrink: 0; }
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  list-style: none;
+}
+.nav-links a {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--fg-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color 0.15s;
+}
+.nav-links a:hover { color: var(--fg); text-decoration: none; }
+.nav-links a.active { color: var(--accent); }
+.nav-cta {
+  font-family: var(--font-mono);
+  font-size: 0.78rem !important;
+  color: var(--accent) !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  padding: 6px 14px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+  transition: border-color 0.15s, background 0.15s !important;
+}
+.nav-cta:hover { background: var(--accent-dim); border-color: var(--accent) !important; }
+.page-hero {
+  padding-block: 64px 56px;
+  border-bottom: 1px solid var(--border);
+}
+.page-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--fg-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.page-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  text-wrap: balance;
+  margin-bottom: 20px;
+}
+.page-sub {
+  font-size: 1rem;
+  color: var(--fg-muted);
+  max-width: 56ch;
+  line-height: 1.65;
+}
+.section {
+  padding-block: 72px;
+  border-bottom: 1px solid var(--border);
+}
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 32px;
+}
+.section-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--fg);
+  text-wrap: balance;
+  margin-bottom: 20px;
+  letter-spacing: -0.01em;
+}
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px 64px;
+  margin-top: 48px;
+}
+.col-item {}
+.col-item-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  margin-bottom: 8px;
+}
+.col-item-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--fg);
+  margin-bottom: 8px;
+}
+.col-item p {
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+  line-height: 1.6;
+}
+.stack-list {
+  margin-top: 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.stack-item {
+  background: var(--bg);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stack-item-role {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+.stack-item-name {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--fg);
+}
+footer {
+  padding-block: 48px;
+  padding-left:  max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
+}
+.footer-inner {
+  max-width: 860px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.footer-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+  letter-spacing: 0.03em;
+}
+.footer-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;
+}
+.footer-links a {
+  font-size: 0.82rem;
+  color: var(--fg-dim);
+  transition: color 0.15s;
+}
+.footer-links a:hover { color: var(--fg-muted); text-decoration: none; }
+@media (max-width: 680px) {
+  .two-col { grid-template-columns: 1fr; gap: 32px; }
+  .nav-links { gap: 16px; }
+  .nav-links li:not(:last-child) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+}
+</style>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="index.html">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <ellipse cx="14" cy="16" rx="6" ry="7" fill="#1a1a1a"/>
+        <ellipse cx="14" cy="15.5" rx="4" ry="5" fill="#f5f0e8"/>
+        <circle cx="14" cy="9.5" rx="5" ry="5" fill="#1a1a1a"/>
+        <circle cx="12.2" cy="9" r="1.2" fill="white"/>
+        <circle cx="15.8" cy="9" r="1.2" fill="white"/>
+        <circle cx="12.5" cy="9.2" r="0.55" fill="#1a1a1a"/>
+        <circle cx="16.1" cy="9.2" r="0.55" fill="#1a1a1a"/>
+        <polygon points="14,11 12.8,12 15.2,12" fill="#f0a020"/>
+        <rect x="8" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+        <rect x="11" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+        <rect x="15.5" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+        <rect x="18.5" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+      </svg>
+      Bastille
+    </a>
+    <ul class="nav-links">
+      <li><a href="features.html" class="active">Features</a></li>
+      <li><a href="threat-model.html">Threat model</a></li>
+      <li><a href="build.html">Build</a></li>
+      <li><a href="https://github.com/ker0s3ner/bastille" target="_blank" rel="noopener">Source</a></li>
+      <li><a href="https://github.com/ker0s3ner/bastille/releases" target="_blank" rel="noopener" class="nav-cta">GitHub →</a></li>
+    </ul>
+  </div>
+</nav>
+
+<section class="page-hero">
+  <div class="inner">
+    <p class="page-eyebrow">Bastille / Features</p>
+    <h1 class="page-title">Secure defaults.<br>Hostile assumptions.</h1>
+    <p class="page-sub">
+      Eight layers of protection — network, storage, access, USB, firmware, physical, anonymity,
+      and memory — designed together so no single failure exposes everything.
+    </p>
+  </div>
+</section>
+
+<section class="section" id="features">
+  <div class="inner">
+    <p class="section-label">Protection layers</p>
+    <h2 class="section-title">Nothing left to configure.</h2>
+    <div class="two-col">
+      <div class="col-item">
+        <p class="col-item-label">Network</p>
+        <p class="col-item-title">VPN kill-switch + HTTPS enforcement</p>
+        <p>All traffic is routed through WireGuard. nftables drops everything if the tunnel is down. Plain-HTTP connections are rejected at the firewall. DNS is locked to the system stub resolver. Firefox ships with a managed policy that disables and locks DoH — browsers without a managed policy can still bypass the resolver via port-443 DoH, so only use browsers covered by an enterprise policy.</p>
+      </div>
+      <div class="col-item">
+        <p class="col-item-label">Storage</p>
+        <p class="col-item-title">Split-key LUKS2 encryption</p>
+        <p>Bastille supports an <strong>optional persistent encrypted partition</strong> on the same USB drive. The persistent partition is LUKS2 with Argon2id. The master key is derived from the user's passphrase and written to the kernel's logon keyring — write-once, not readable from userspace after boot. Locking the screen evicts that keyslot; the partition cannot be read again without re-entering the passphrase.</p>
+      </div>
+      <div class="col-item">
+        <p class="col-item-label">Access</p>
+        <p class="col-item-title">Duress PINs with decoy profiles</p>
+        <p>The session auto-logs in on boot — no login prompt is shown at startup. Duress PINs apply at screen unlock only: normal unlock, decoy unlock (opens a sanitised profile), and wipe unlock (overwrites key material and powers off). PIN verification is constant-time.</p>
+        <p style="font-size:0.82rem;color:var(--danger);margin-top:8px;">⚠ Legal note: in some jurisdictions, using a wipe PIN in response to a lawful demand may constitute destruction of evidence. Know your local law before enabling this feature.</p>
+      </div>
+      <div class="col-item">
+        <p class="col-item-label">USB</p>
+        <p class="col-item-title">USB control and counter-response</p>
+        <p>USBGuard runs in default-deny mode: any newly connected HID device is blocked until explicitly authorised. A secondary rate-monitor watches for bursts above 40 events per 100 ms. On either trigger: de-authorise, evict LUKS keys, shred key material. VID:PID signature matching is included but is spoofable and treated as supplementary.</p>
+      </div>
+      <div class="col-item">
+        <p class="col-item-label">Firmware</p>
+        <p class="col-item-title">Sub-ring-0 neutralisation</p>
+        <p>Intel ME is stripped to the HAP bit via <code>me_cleaner</code> where supported. KVM modules are blacklisted at boot. S3 suspend (the SMM attack surface) is disabled. IOMMU is enforced in strict mode. A firmware audit service runs at boot and logs the result.</p>
+        <p style="font-size:0.82rem;color:var(--fg-muted);margin-top:8px;">Requires external SPI flashing. Does not work on machines with Intel Boot Guard; check your hardware before flashing.</p>
+      </div>
+      <div class="col-item">
+        <p class="col-item-label">Physical</p>
+        <p class="col-item-title">Vision and focus guard <span style="font-size:0.7rem;color:var(--fg-dim);font-family:var(--font-mono);letter-spacing:0.06em;text-transform:uppercase;margin-left:6px;">Opt-in</span></p>
+        <p>Camera-based face detection (Haar cascade, 5 fps): screen locks if your face leaves the frame for ten seconds; dims to 5% if a second face appears. Disabled by default — an active camera is its own attack surface. Enable in Bastille Settings if you want it.</p>
+      </div>
+      <div class="col-item">
+        <p class="col-item-label">Anonymity</p>
+        <p class="col-item-title">I2P routing</p>
+        <p>i2pd runs inside the WireGuard tunnel. SOCKS5 and HTTP proxies are available on localhost for applications that support them. Traffic routed through I2P is end-to-end encrypted across the I2P network before reaching the VPN.</p>
+      </div>
+      <div class="col-item">
+        <p class="col-item-label">Memory</p>
+        <p class="col-item-title">Minimal RAM footprint</p>
+        <p>Key material uses <code>sodium_malloc</code> with <code>mlock</code>. Page cache is scrubbed every five minutes via <code>drop_caches</code>. Transparent hugepages are disabled. <code>vm.swappiness=0</code> prevents sensitive pages from being paged out.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="stack">
+  <div class="inner">
+    <p class="section-label">Technical stack</p>
+    <h2 class="section-title">What it's built from.</h2>
+    <div class="stack-list">
+      <div class="stack-item"><span class="stack-item-role">Base</span><span class="stack-item-name">Debian Bookworm (live-build)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Init</span><span class="stack-item-name">OpenRC + sysvinit-core</span></div>
+      <div class="stack-item"><span class="stack-item-role">Desktop</span><span class="stack-item-name">GNOME / X11 (fbdev on ARM)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Login</span><span class="stack-item-name">greetd (customized)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Logind</span><span class="stack-item-name">elogind (systemd-free)</span></div>
+      <div class="stack-item"><span class="stack-item-role">VPN</span><span class="stack-item-name">WireGuard (in-kernel)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Firewall</span><span class="stack-item-name">nftables (default DROP)</span></div>
+      <div class="stack-item"><span class="stack-item-role">DNS</span><span class="stack-item-name">Unbound (DoT + DNSSEC)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Anonymity</span><span class="stack-item-name">i2pd (C++ I2P router)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Encryption</span><span class="stack-item-name">LUKS2 + Argon2id</span></div>
+      <div class="stack-item"><span class="stack-item-role">Crypto</span><span class="stack-item-name">libsodium</span></div>
+      <div class="stack-item"><span class="stack-item-role">Key storage</span><span class="stack-item-name">Kernel logon keyring</span></div>
+      <div class="stack-item"><span class="stack-item-role">Auth</span><span class="stack-item-name">PAM (pam_thl_duress.so)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Isolation</span><span class="stack-item-name">AppArmor + USBGuard</span></div>
+      <div class="stack-item"><span class="stack-item-role">IOMMU</span><span class="stack-item-name">Intel VT-d / AMD-Vi (strict)</span></div>
+      <div class="stack-item"><span class="stack-item-role">Kernel</span><span class="stack-item-name">lockdown=confidentiality</span></div>
+      <div class="stack-item"><span class="stack-item-role">Firmware</span><span class="stack-item-name">me_cleaner + flashrom</span></div>
+      <div class="stack-item"><span class="stack-item-role">Vision</span><span class="stack-item-name">OpenCV (Haar cascade)</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <span class="footer-name">Bastille</span>
+    <ul class="footer-links">
+      <li><a href="https://github.com/ker0s3ner/bastille" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/ker0s3ner/bastille/releases" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="https://github.com/ker0s3ner/bastille/issues" target="_blank" rel="noopener">Issues</a></li>
+    </ul>
+  </div>
+</footer>

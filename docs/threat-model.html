@@ -1,0 +1,389 @@
+<title>Threat Model — Bastille</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root {
+  --bg:           #0b0c10;
+  --surface:      #13151e;
+  --border:       #1d2032;
+  --border-hi:    #2d3250;
+  --fg:           #dde3f0;
+  --fg-muted:     #626e90;
+  --fg-dim:       #3d4560;
+  --accent:       #4f8fd4;
+  --accent-dim:   #1e3a5f;
+  --danger:       #c04b3a;
+  --font-display: 'Syne', system-ui, sans-serif;
+  --font-body:    'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', 'Courier New', monospace;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+.inner {
+  max-width: 860px;
+  margin-inline: auto;
+  padding-left:  max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
+}
+nav {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 100;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+nav::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--bg);
+  z-index: 101;
+}
+.nav-inner {
+  max-width: 1100px;
+  margin-inline: auto;
+  padding-inline: max(24px, env(safe-area-inset-left, 0px));
+  padding-block: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--fg);
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.nav-logo:hover { text-decoration: none; }
+.nav-logo svg { flex-shrink: 0; }
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  list-style: none;
+}
+.nav-links a {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--fg-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color 0.15s;
+}
+.nav-links a:hover { color: var(--fg); text-decoration: none; }
+.nav-links a.active { color: var(--accent); }
+.nav-cta {
+  font-family: var(--font-mono);
+  font-size: 0.78rem !important;
+  color: var(--accent) !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  padding: 6px 14px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+  transition: border-color 0.15s, background 0.15s !important;
+}
+.nav-cta:hover { background: var(--accent-dim); border-color: var(--accent) !important; }
+.page-hero {
+  padding-block: 64px 56px;
+  border-bottom: 1px solid var(--border);
+}
+.page-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--fg-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.page-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  text-wrap: balance;
+  margin-bottom: 20px;
+}
+.page-sub {
+  font-size: 1rem;
+  color: var(--fg-muted);
+  max-width: 56ch;
+  line-height: 1.65;
+}
+.section {
+  padding-block: 72px;
+  border-bottom: 1px solid var(--border);
+}
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 32px;
+}
+.section-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--fg);
+  text-wrap: balance;
+  margin-bottom: 20px;
+  letter-spacing: -0.01em;
+}
+.section-body { max-width: 65ch; margin-bottom: 40px; }
+.section-body p { color: var(--fg-muted); margin-bottom: 16px; }
+.section-body p:last-child { margin-bottom: 0; }
+.section-body strong { color: var(--fg); font-weight: 500; }
+.threat-grid {
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  overflow-x: auto;
+}
+.threat-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 0;
+  background: var(--bg);
+  align-items: center;
+}
+.threat-row.header {
+  background: var(--surface);
+  align-items: center;
+}
+.threat-cell {
+  padding: 16px 20px;
+  font-size: 0.85rem;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.threat-cell:last-child {
+  border-right: none;
+  align-items: center;
+  justify-content: center;
+}
+.threat-row.header .threat-cell {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.threat-cell strong { color: var(--fg); font-weight: 500; }
+.threat-cell p { color: var(--fg-muted); font-size: 0.83rem; margin-top: 2px; }
+.tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.tag-mitigated { background: #0d2e1a; color: #4eaa72; border: 1px solid #1a4d2d; }
+.tag-partial   { background: #2a1e08; color: #c89040; border: 1px solid #4a3510; }
+.tag-scoped    { background: #0d1e30; color: #4a86c4; border: 1px solid #1a3555; }
+footer {
+  padding-block: 48px;
+  padding-left:  max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
+}
+.footer-inner {
+  max-width: 860px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.footer-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+  letter-spacing: 0.03em;
+}
+.footer-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;
+}
+.footer-links a {
+  font-size: 0.82rem;
+  color: var(--fg-dim);
+  transition: color 0.15s;
+}
+.footer-links a:hover { color: var(--fg-muted); text-decoration: none; }
+@media (max-width: 680px) {
+  .threat-row { grid-template-columns: 1fr; align-items: stretch; }
+  .threat-cell { border-right: none; border-bottom: 1px solid var(--border); align-items: flex-start; justify-content: center; }
+  .threat-cell:last-child { border-bottom: none; align-items: flex-start; }
+  .threat-row.header .threat-cell:not(:first-child) { display: none; }
+  .nav-links { gap: 16px; }
+  .nav-links li:not(:last-child) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+}
+</style>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="index.html">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <ellipse cx="14" cy="16" rx="6" ry="7" fill="#1a1a1a"/>
+        <ellipse cx="14" cy="15.5" rx="4" ry="5" fill="#f5f0e8"/>
+        <circle cx="14" cy="9.5" rx="5" ry="5" fill="#1a1a1a"/>
+        <circle cx="12.2" cy="9" r="1.2" fill="white"/>
+        <circle cx="15.8" cy="9" r="1.2" fill="white"/>
+        <circle cx="12.5" cy="9.2" r="0.55" fill="#1a1a1a"/>
+        <circle cx="16.1" cy="9.2" r="0.55" fill="#1a1a1a"/>
+        <polygon points="14,11 12.8,12 15.2,12" fill="#f0a020"/>
+        <rect x="8" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+        <rect x="11" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+        <rect x="15.5" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+        <rect x="18.5" y="3" width="1.5" height="22" rx="0.75" fill="#4f8fd4" opacity="0.7"/>
+      </svg>
+      Bastille
+    </a>
+    <ul class="nav-links">
+      <li><a href="features.html">Features</a></li>
+      <li><a href="threat-model.html" class="active">Threat model</a></li>
+      <li><a href="build.html">Build</a></li>
+      <li><a href="https://github.com/ker0s3ner/bastille" target="_blank" rel="noopener">Source</a></li>
+      <li><a href="https://github.com/ker0s3ner/bastille/releases" target="_blank" rel="noopener" class="nav-cta">GitHub →</a></li>
+    </ul>
+  </div>
+</nav>
+
+<section class="page-hero">
+  <div class="inner">
+    <p class="page-eyebrow">Bastille / Threat Model</p>
+    <h1 class="page-title">What Bastille<br>protects against.</h1>
+    <p class="page-sub">
+      Bastille is designed for people under active adversarial pressure — border crossings,
+      device seizure, network interception. It does not protect against a fully compromised
+      supply chain or a nation-state with physical access to the CPU die.
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="inner">
+    <p class="section-label">Context</p>
+    <h2 class="section-title">Live system threat model.</h2>
+    <div class="section-body">
+      <p>
+        The live OS boots entirely to RAM and leaves no artefacts on the host machine.
+        An optional persistent encrypted partition on the same USB drive stores user data;
+        the BFU/AFU threat model rows below apply when that partition is in use.
+        Without it, powering off the device destroys all session state.
+      </p>
+      <p>
+        The user account is intentionally unprivileged — no sudo access. All persistent
+        configuration is done through the Bastille Settings UI. System daemons run as
+        dedicated accounts. This is a deliberate security decision, not a limitation.
+      </p>
+    </div>
+
+    <div class="threat-grid" role="table" aria-label="Threat model">
+      <div class="threat-row header" role="row">
+        <div class="threat-cell" role="columnheader">Threat</div>
+        <div class="threat-cell" role="columnheader">Mitigation</div>
+        <div class="threat-cell" role="columnheader">Status</div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Network interception</strong><p>Passive or active MITM on hostile Wi-Fi or mobile network</p></div>
+        <div class="threat-cell" role="cell">WireGuard kill-switch; HTTPS-only enforcement; DNS over TLS locked to stub resolver</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Disk forensics (BFU)</strong><p>Device powered off; attacker reads raw storage</p></div>
+        <div class="threat-cell" role="cell">LUKS2 Argon2id (1 GB memory cost); no key material on disk without both halves present</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Live forensics (AFU)</strong><p>Cellebrite UFED or equivalent; device powered on and screen locked</p></div>
+        <div class="threat-cell" role="cell">Screen lock evicts RAM key half; IOMMU blocks DMA; USB HID-rate monitor shreds keys on suspicious device connection; VID:PID matching is supplementary (spoofable)</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-partial">Reduced</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Coerced unlock</strong><p>User forced to provide credentials under duress</p></div>
+        <div class="threat-cell" role="cell">Duress PIN opens decoy profile or triggers full wipe; hard to distinguish at the PAM layer, though a second profile may be detectable by a forensic examiner</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-partial">Reduced</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>BadUSB / O.MG cable</strong><p>HID emulation device injecting keystrokes</p></div>
+        <div class="threat-cell" role="cell">USBGuard default-deny blocks all new HID devices; secondary rate monitor triggers de-authorisation on bursts &gt;40 events/100 ms; LUKS keys evicted on detection</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Firmware-level persistence</strong><p>Intel ME / SMM rootkit</p></div>
+        <div class="threat-cell" role="cell">ME stripped to HAP bit; SMM S3 disabled; KVM blacklisted; requires hardware-specific flashrom support</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-partial">Partial</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Shoulder surfing</strong><p>Screen observed by a bystander</p></div>
+        <div class="threat-cell" role="cell">Vision guard (opt-in) dims screen to 5% when a second face is detected; Haar cascade at 5 fps provides best-effort detection only</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-partial">Reduced</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Browser fingerprinting</strong><p>Tracking via browser characteristics</p></div>
+        <div class="threat-cell" role="cell">Browser allowlist enforced via AppArmor; I2P routing available; Firefox managed policy locks DoH and sets privacy defaults</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-scoped">Scoped</span></div>
+      </div>
+      <div class="threat-row" role="row">
+        <div class="threat-cell" role="cell"><strong>Privilege escalation</strong><p>Local attacker gains root access</p></div>
+        <div class="threat-cell" role="cell">No sudo for the live user; AppArmor MAC; kernel lockdown=confidentiality; read-only squashfs root</div>
+        <div class="threat-cell" role="cell"><span class="tag tag-mitigated">Mitigated</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <span class="footer-name">Bastille</span>
+    <ul class="footer-links">
+      <li><a href="https://github.com/ker0s3ner/bastille" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/ker0s3ner/bastille/releases" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="https://github.com/ker0s3ner/bastille/issues" target="_blank" rel="noopener">Issues</a></li>
+    </ul>
+  </div>
+</footer>
