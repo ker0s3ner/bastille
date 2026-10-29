@@ -1,0 +1,32 @@
+#!/sbin/openrc-run
+# Lock DNS to dnscrypt-proxy stub (127.0.0.1:53)
+# Prevents NetworkManager/dhclient from overwriting resolv.conf
+
+description="Lock DNS to dnscrypt-proxy (immutable resolv.conf)"
+
+depend() {
+    after dnscrypt-proxy
+    before net
+}
+
+start() {
+    ebegin "Locking DNS to dnscrypt-proxy"
+
+    # Write static resolv.conf pointing at dnscrypt-proxy stub
+    cat > /etc/resolv.conf << 'EOF'
+# Managed by thl-dns-lock — do not edit
+# DNS handled by dnscrypt-proxy (DoH/DoT)
+nameserver 127.0.0.1
+options edns0 trust-ad
+EOF
+
+    # Make immutable so nothing can overwrite it
+    chattr +i /etc/resolv.conf 2>/dev/null || true
+
+    eend $?
+}
+
+stop() {
+    chattr -i /etc/resolv.conf 2>/dev/null || true
+    return 0
+}

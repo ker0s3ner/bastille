@@ -1,0 +1,23 @@
+#!/bin/sh
+# Set up greetd greeter account and permissions
+set -e
+
+# Create greeter system account (no login shell, no home)
+if ! id greeter >/dev/null 2>&1; then
+    useradd -r -s /usr/sbin/nologin -d /var/lib/greeter -M greeter
+    install -d -m 750 -o greeter -g greeter /var/lib/greeter
+fi
+
+# greetd needs to read /etc/greetd/
+chmod 750 /etc/greetd
+chown root:greeter /etc/greetd
+chmod 640 /etc/greetd/config.toml
+chmod 644 /etc/greetd/bastille.css
+
+# greetd socket dir
+install -d -m 755 /run/greetd
+chown greeter:greeter /run/greetd 2>/dev/null || true
+
+# Set greetd as the OpenRC service for the display manager
+# (greetd manages its own VT; no X display manager needed)
+echo "greetd setup complete"

@@ -1,0 +1,19 @@
+#!/sbin/openrc-run
+# Wipe RAM contents on shutdown using sdmem
+
+description="Wipe RAM on shutdown"
+
+depend() {
+    before shutdown reboot halt
+    after umount
+}
+
+start() {
+    return 0
+}
+
+stop() {
+    ebegin "Wiping RAM (sdmem)"
+    /usr/bin/sdmem -ll
+    eend $?
+}

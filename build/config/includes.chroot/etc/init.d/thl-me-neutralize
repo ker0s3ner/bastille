@@ -1,0 +1,16 @@
+#!/sbin/openrc-run
+# Intel ME neutralization (HAP bit, amd64 only)
+
+description="Intel ME neutralization (HAP bit)"
+
+depend() {
+    after modules
+    before net
+}
+
+start() {
+    [ -e /dev/cpu/0/msr ] || { einfo "No MSR device — skipping ME neutralization"; return 0; }
+    ebegin "Neutralizing Intel ME"
+    /usr/local/bin/thl-me-neutralize
+    eend $?
+}

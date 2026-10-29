@@ -1,0 +1,15 @@
+#!/sbin/openrc-run
+# Block Bluetooth at boot via rfkill
+
+description="Block Bluetooth at boot"
+
+depend() {
+    after udev
+    before net
+}
+
+start() {
+    ebegin "Blocking Bluetooth (rfkill)"
+    /usr/sbin/rfkill block bluetooth
+    eend $?
+}

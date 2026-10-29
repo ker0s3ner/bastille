@@ -2,7 +2,6 @@
 vt = 1
 
 [default_session]
-# Use GDM3 — greetd not needed with GNOME's own display manager
-# GDM3 is enabled via systemd hook; this file is a fallback.
-command = "agreety --cmd gnome-session"
+# gtkgreet with Bastille dark theme; launches gnome-session after auth
+command = "gtkgreet -l -s /etc/greetd/bastille.css -c gnome-session"
 user = "greeter"

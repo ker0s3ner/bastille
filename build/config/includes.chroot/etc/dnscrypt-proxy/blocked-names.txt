@@ -1,0 +1,6 @@
+# Bastille OS — blocked domains
+# Add entries here or replace with a blocklist during initial setup.
+# Format: one domain per line, wildcards supported.
+# Example:
+#   doubleclick.net
+#   *.telemetry.microsoft.com

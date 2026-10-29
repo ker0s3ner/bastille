@@ -1,48 +1,49 @@
 #!/bin/sh
-# Enable THL systemd units inside the chroot at build time.
+# Enable Bastille OS OpenRC services at build time.
 set -e
 
-# Core network security services
-systemctl enable nftables.service
-systemctl enable systemd-resolved.service
-systemctl enable thl-enforce-dns.service
-
-# VPN — wg-quick@wg0 is enabled but will only start if wg0.conf exists
-# (populated by the profile setup or the user's own config)
-systemctl enable wg-quick@wg0.service || true
-
-# I2P router
-systemctl enable i2pd.service
-
-# AppArmor
-systemctl enable apparmor.service
-
-# Display manager (GNOME)
-systemctl enable gdm.service
-systemctl disable greetd.service || true
-
-# RAM wipe on shutdown
-systemctl enable bastille-ramwipe.service
-
-# Auto-poweroff to BFU after idle
-systemctl enable bastille-bfu-idle.service
-
-# Make BFU poweroff script executable
+# ── Make all init scripts executable ─────────────────────────────────────────
+chmod +x /etc/init.d/bastille-ramwipe       || true
+chmod +x /etc/init.d/bastille-bfu-idle      || true
+chmod +x /etc/init.d/bastille-dsm-watchdog  || true
+chmod +x /etc/init.d/bastille-update-check  || true
+chmod +x /etc/init.d/thl-bluetooth-block    || true
+chmod +x /etc/init.d/thl-me-neutralize      || true
+chmod +x /etc/init.d/thl-dns-lock           || true
+chmod +x /etc/init.d/thl-ram-scrub          || true
+chmod +x /etc/init.d/wg-quick.wg0           || true
 chmod +x /usr/local/sbin/bastille-bfu-poweroff
 
-# Flatpak: add Flathub as a user-level remote at first login
-# (system-wide remote would require root; user remote does not)
+# ── Enable services ───────────────────────────────────────────────────────────
+rc-update add nftables           default
+rc-update add dnscrypt-proxy     default
+rc-update add thl-dns-lock       default
+rc-update add thl-bluetooth-block boot
+rc-update add thl-me-neutralize  boot
+rc-update add apparmor           boot
+rc-update add usbguard           default
+rc-update add NetworkManager     default
+rc-update add elogind            boot
+rc-update add dbus               default
+rc-update add greetd             default
+rc-update add bastille-ramwipe   shutdown
+rc-update add thl-ram-scrub      shutdown
+rc-update add bastille-bfu-idle  default
+rc-update add bastille-update-check default
+rc-update add wg-quick.wg0       default || true   # only if wg0.conf exists at boot
+
+# DSM watchdog: enabled only when /etc/thl/dsm.enabled exists (checked at runtime)
+rc-update add bastille-dsm-watchdog default || true
+
+# i2pd (optional)
+rc-update add i2pd default || true
+
+# ── Flatpak: add Flathub as user remote at first login ────────────────────────
 install -d -m 755 /etc/profile.d
 cat > /etc/profile.d/bastille-flatpak.sh << 'FLATPAK_INIT'
 #!/bin/sh
-# Add Flathub as a user remote on first login (no sudo needed)
 if ! flatpak remotes --user 2>/dev/null | grep -q flathub; then
     flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
 fi
 FLATPAK_INIT
-
-# Disable services that leak information or are unnecessary
-systemctl disable avahi-daemon.service   || true
-systemctl disable cups.service           || true
-systemctl disable bluetooth.service      || true
-systemctl mask    NetworkManager-wait-online.service || true
+chmod 644 /etc/profile.d/bastille-flatpak.sh

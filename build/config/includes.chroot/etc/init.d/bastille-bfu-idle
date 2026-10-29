@@ -1,0 +1,18 @@
+#!/sbin/openrc-run
+# Auto-poweroff to BFU (Before First Unlock) state after 30 min idle
+
+description="Auto-poweroff to BFU state after idle"
+pidfile="/run/bastille-bfu-idle.pid"
+command="/bin/sh"
+command_args="-c 'while true; do idle=\$(DISPLAY=:0 xprintidle 2>/dev/null || echo 0); [ \"\$idle\" -ge 1800000 ] && /usr/local/sbin/bastille-bfu-poweroff; sleep 60; done'"
+command_background=true
+command_user="user"
+
+depend() {
+    after elogind
+    need localmount
+}
+
+start_pre() {
+    checkpath --directory --owner root:root --mode 0755 /run
+}

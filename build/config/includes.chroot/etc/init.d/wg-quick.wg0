@@ -1,0 +1,24 @@
+#!/sbin/openrc-run
+# WireGuard wg0 interface via wg-quick
+
+description="WireGuard VPN (wg0)"
+WG_CONF="/etc/wireguard/wg0.conf"
+
+depend() {
+    need net
+    after nftables thl-dns-lock
+}
+
+start() {
+    [ -f "$WG_CONF" ] || { einfo "No wg0.conf — skipping WireGuard"; return 0; }
+    ebegin "Starting WireGuard wg0"
+    /usr/bin/wg-quick up wg0
+    eend $?
+}
+
+stop() {
+    /usr/bin/wg show wg0 >/dev/null 2>&1 || return 0
+    ebegin "Stopping WireGuard wg0"
+    /usr/bin/wg-quick down wg0
+    eend $?
+}

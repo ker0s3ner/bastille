@@ -1,0 +1,3 @@
+# Periodic RAM scrub every 5 minutes (replaces systemd timer)
+# Runs sdmem only on unused pages; the shutdown service runs the full scrub
+*/5 * * * * root /usr/bin/sdmem -l -l >/dev/null 2>&1

@@ -1,0 +1,19 @@
+#!/sbin/openrc-run
+# Secure RAM scrub on shutdown
+
+description="Secure RAM scrub on shutdown"
+
+depend() {
+    before shutdown reboot halt
+    after umount
+}
+
+start() {
+    return 0
+}
+
+stop() {
+    ebegin "Scrubbing RAM (sdmem)"
+    /usr/bin/sdmem -f -l -l
+    eend $?
+}

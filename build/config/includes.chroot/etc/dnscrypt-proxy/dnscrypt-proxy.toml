@@ -1,0 +1,46 @@
+# Bastille OS — dnscrypt-proxy configuration
+# Replaces systemd-resolved; all DNS goes through DoH/DoT with DNSSEC
+
+listen_addresses = ['127.0.0.1:53', '[::1]:53']
+
+# Maximum simultaneous DNS queries
+max_clients = 250
+
+# Use DoH servers only (no plain DNS fallback)
+server_names = ['cloudflare-security', 'quad9-dnscrypt-ip4-filter-pri', 'nextdns']
+
+# Require servers to support DNS-over-HTTPS or DNSCrypt
+require_dnssec = true
+require_nolog  = true
+require_nofilter = false   # allow filtering servers (malware blocking)
+
+# Block known-bad domains
+block_ipv6 = false
+
+[sources]
+  [sources.public-resolvers]
+  urls = [
+    'https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md',
+    'https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md'
+  ]
+  cache_file = '/var/cache/dnscrypt-proxy/public-resolvers.md'
+  minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+  prefix = ''
+
+[anonymized_dns]
+  # Route queries through relays to hide client IP from resolvers
+  routes = [
+    { server_name='cloudflare-security', via=['anon-cs-amsterdam', 'anon-cs-london'] },
+    { server_name='quad9-dnscrypt-ip4-filter-pri', via=['anon-cs-de', 'anon-cs-nl'] }
+  ]
+
+[query_log]
+  # Disabled — no DNS query logging
+  file = ''
+
+[nx_log]
+  file = ''
+
+[blacklist]
+  # Blocked domains list (populated by security profile)
+  blocked_names_file = '/etc/dnscrypt-proxy/blocked-names.txt'

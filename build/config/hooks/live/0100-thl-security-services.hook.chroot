@@ -1,39 +1,31 @@
 #!/bin/bash
 set -euo pipefail
 
-# ── Permissions ──────────────────────────────────────────────────────────────
+# ── Permissions ───────────────────────────────────────────────────────────────
 chmod 700 /usr/local/bin/thl-lock
 chmod 700 /usr/local/bin/thl-me-neutralize
 chmod 755 /usr/local/bin/flatpak
 chmod 755 "/usr/share/nautilus/scripts/Wipe Metadata (MAT2)"
 
-# ── Enable hardening services ────────────────────────────────────────────────
-systemctl enable thl-ram-scrub.service
-systemctl enable thl-bluetooth-block.service
-systemctl enable thl-me-neutralize.service
+# ── dnscrypt-proxy cache dir ──────────────────────────────────────────────────
+install -d -m 750 /var/cache/dnscrypt-proxy
+chown _dnscrypt-proxy:_dnscrypt-proxy /var/cache/dnscrypt-proxy 2>/dev/null || true
 
-# ── Disable / mask unnecessary services ─────────────────────────────────────
-systemctl disable bluetooth.service    2>/dev/null || true
-systemctl mask   bluetooth.service     2>/dev/null || true
-systemctl disable avahi-daemon.service 2>/dev/null || true
-systemctl mask   avahi-daemon.service  2>/dev/null || true
-systemctl disable cups.service         2>/dev/null || true
-systemctl mask   cups.service          2>/dev/null || true
-systemctl disable ModemManager.service 2>/dev/null || true
-systemctl mask   ModemManager.service  2>/dev/null || true
+# ── Set UTC timezone ──────────────────────────────────────────────────────────
+ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+echo "UTC" > /etc/timezone
 
-# ── Enable tmp.mount (explicit tmpfs for /tmp) ───────────────────────────────
-systemctl enable tmp.mount 2>/dev/null || true
-
-# ── MSR module for ME neutralization (x86 only) ─────────────────────────────
+# ── MSR module for ME neutralization (x86 only) ───────────────────────────────
 arch=$(dpkg --print-architecture)
 if [ "$arch" = "amd64" ] || [ "$arch" = "i386" ]; then
     echo "msr" >> /etc/modules
 fi
 
-# ── Set UTC timezone ─────────────────────────────────────────────────────────
-ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-echo "UTC" > /etc/timezone
-
 # ── Update dconf database ─────────────────────────────────────────────────────
 dconf update 2>/dev/null || true
+
+# ── AppArmor profiles ─────────────────────────────────────────────────────────
+# Pre-load profiles so they are active without systemd
+if command -v apparmor_parser >/dev/null 2>&1; then
+    apparmor_parser -r /etc/apparmor.d/ 2>/dev/null || true
+fi

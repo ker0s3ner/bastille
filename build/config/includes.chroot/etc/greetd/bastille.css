@@ -1,0 +1,94 @@
+/* Bastille OS — gtkgreet theme */
+
+* {
+    font-family: "IBM Plex Mono", "DejaVu Sans Mono", monospace;
+    color: #c9d1d9;
+}
+
+window {
+    background-color: #0b0c10;
+}
+
+box#body {
+    background-color: transparent;
+}
+
+/* Login card */
+box#main-box {
+    background-color: #161b22;
+    border: 1px solid #1f3a5f;
+    border-radius: 12px;
+    padding: 40px 48px;
+    min-width: 340px;
+}
+
+/* Logo / header */
+label#user-label {
+    font-size: 13px;
+    color: #8b949e;
+    margin-bottom: 4px;
+}
+
+/* Input fields */
+entry {
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #c9d1d9;
+    padding: 10px 14px;
+    font-size: 14px;
+    caret-color: #4f8fd4;
+}
+
+entry:focus {
+    border-color: #4f8fd4;
+    box-shadow: 0 0 0 3px rgba(79, 143, 212, 0.15);
+}
+
+/* Login button */
+button {
+    background-color: #1c4a8a;
+    border: none;
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 24px;
+    margin-top: 8px;
+    transition: background-color 120ms ease;
+}
+
+button:hover {
+    background-color: #2563c4;
+}
+
+button:active {
+    background-color: #1a4080;
+}
+
+/* Error / info messages */
+label.error {
+    color: #f85149;
+    font-size: 12px;
+}
+
+label.info {
+    color: #8b949e;
+    font-size: 12px;
+}
+
+/* Clock / hostname label */
+label#clock {
+    font-size: 32px;
+    font-weight: 300;
+    color: #c9d1d9;
+    margin-bottom: 8px;
+}
+
+label#hostname {
+    font-size: 12px;
+    color: #4f8fd4;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 32px;
+}

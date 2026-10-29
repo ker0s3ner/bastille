@@ -1,0 +1,20 @@
+#!/sbin/openrc-run
+# Bastille DSM (Dead Switch Mode) attack watchdog
+
+description="Bastille DSM attack watchdog"
+pidfile="/run/bastille-dsm-watchdog.pid"
+command="/usr/local/sbin/bastille-dsm-watchdog"
+command_background=true
+
+depend() {
+    need net
+    after elogind
+}
+
+start_pre() {
+    # Only start if DSM is explicitly enabled
+    if [ ! -f /etc/thl/dsm.enabled ]; then
+        einfo "DSM not enabled — skipping watchdog"
+        return 1
+    fi
+}
