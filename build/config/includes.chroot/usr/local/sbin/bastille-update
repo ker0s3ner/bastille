@@ -1,0 +1,304 @@
+#!/bin/bash
+# bastille-update — verified in-place OS updater for Bastille live media
+#
+# Downloads the latest squashfs from GitHub Releases, verifies SHA256,
+# and writes it to the live boot medium. Must run as root (call via polkit).
+#
+# Usage:
+#   bastille-update check          — print available/installed version info
+#   bastille-update apply          — download, verify, and install update
+#   bastille-update verify         — verify the currently installed squashfs
+#   bastille-update --version      — print installed version
+#
+# The running system is NOT affected until the next reboot.
+# Persistence data is preserved (separate LUKS2 volume).
+
+set -euo pipefail
+
+# ── Config ────────────────────────────────────────────────────────────────────
+
+CONF="/etc/bastille/update.conf"
+[ -f "$CONF" ] && source "$CONF"
+
+GITHUB_REPO="${BASTILLE_GITHUB_REPO:-ker0s3ner/bastille}"
+RELEASE_API="${BASTILLE_RELEASE_API:-https://api.github.com/repos/${GITHUB_REPO}/releases/latest}"
+SHA256SUMS_ASSET_AMD64="${BASTILLE_SHA256SUMS_ASSET_AMD64:-SHA256SUMS-amd64}"
+SHA256SUMS_ASSET_ARM64="${BASTILLE_SHA256SUMS_ASSET_ARM64:-SHA256SUMS-arm64}"
+VERSION_FILE="${BASTILLE_VERSION_FILE:-/etc/bastille/version}"
+BOOT_MEDIUM="${BASTILLE_BOOT_MEDIUM:-/run/live/medium}"
+SQUASHFS_PATH="${BASTILLE_SQUASHFS_PATH:-live/filesystem.squashfs}"
+DOWNLOAD_DIR="${BASTILLE_DOWNLOAD_DIR:-/var/cache/bastille-update}"
+NOTIFY_USER="${BASTILLE_NOTIFY_USER:-user}"
+
+# Detect architecture
+ARCH="$(uname -m)"
+case "$ARCH" in
+    x86_64)
+        SQUASHFS_ASSET="${BASTILLE_SQUASHFS_ASSET_AMD64:-bastille-live-amd64.squashfs}"
+        SHA256SUMS_ASSET="$SHA256SUMS_ASSET_AMD64"
+        ;;
+    aarch64)
+        SQUASHFS_ASSET="${BASTILLE_SQUASHFS_ASSET_ARM64:-bastille-live-arm64.squashfs}"
+        SHA256SUMS_ASSET="$SHA256SUMS_ASSET_ARM64"
+        ;;
+    *) die "Unsupported architecture: $ARCH" ;;
+esac
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+die()   { echo "bastille-update: ERROR: $*" >&2; notify_err "$*"; exit 1; }
+info()  { echo "bastille-update: $*"; }
+warn()  { echo "bastille-update: WARNING: $*" >&2; }
+
+notify_user() {
+    local summary="$1" body="${2:-}"
+    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u "$NOTIFY_USER")/bus" \
+        sudo -u "$NOTIFY_USER" \
+        notify-send --app-name="Bastille Update" \
+        --icon=system-software-update \
+        "$summary" "$body" 2>/dev/null || true
+}
+
+notify_err() {
+    notify_user "Update failed" "$*"
+}
+
+require_root() {
+    [ "$(id -u)" -eq 0 ] || die "must run as root (use polkit: bastille-update apply)"
+}
+
+require_live() {
+    [ -d "$BOOT_MEDIUM" ] || die "Live boot medium not found at $BOOT_MEDIUM — not running from live media?"
+    [ -f "$BOOT_MEDIUM/$SQUASHFS_PATH" ] || die "Squashfs not found at $BOOT_MEDIUM/$SQUASHFS_PATH"
+}
+
+require_writable_medium() {
+    # The live medium is mounted read-only by default.
+    # We remount rw, do the write, remount ro.
+    if ! touch "$BOOT_MEDIUM/.write-test" 2>/dev/null; then
+        mount -o remount,rw "$BOOT_MEDIUM" \
+            || die "Cannot remount live medium rw — is it write-protected?"
+        MEDIUM_REMOUNTED=1
+    fi
+    rm -f "$BOOT_MEDIUM/.write-test"
+}
+
+restore_medium_ro() {
+    [ "${MEDIUM_REMOUNTED:-0}" -eq 1 ] || return 0
+    mount -o remount,ro "$BOOT_MEDIUM" 2>/dev/null || warn "Could not remount medium ro"
+    MEDIUM_REMOUNTED=0
+}
+
+MEDIUM_REMOUNTED=0
+trap restore_medium_ro EXIT
+
+# ── Installed version ─────────────────────────────────────────────────────────
+
+installed_version() {
+    if [ -f "$VERSION_FILE" ]; then
+        cat "$VERSION_FILE"
+    else
+        echo "unknown"
+    fi
+}
+
+# ── GitHub API ────────────────────────────────────────────────────────────────
+
+fetch_release_json() {
+    curl -sSfL \
+        --max-time 30 \
+        -H "Accept: application/vnd.github+json" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        "$RELEASE_API"
+}
+
+parse_latest_tag() {
+    python3 -c "import sys,json; d=json.load(sys.stdin); print(d['tag_name'])"
+}
+
+parse_asset_url() {
+    local asset_name="$1"
+    python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for a in d['assets']:
+    if a['name'] == '$asset_name':
+        print(a['browser_download_url'])
+        sys.exit(0)
+sys.exit(1)
+" || die "Asset '$asset_name' not found in release"
+}
+
+# ── Download + verify ─────────────────────────────────────────────────────────
+
+download_asset() {
+    local url="$1" dest="$2"
+    info "Downloading $(basename "$dest")..."
+    curl -sSfL \
+        --max-time 600 \
+        --retry 3 \
+        --retry-delay 5 \
+        --progress-bar \
+        -o "$dest" \
+        "$url"
+}
+
+verify_sha256() {
+    local squashfs="$1" sha256sums="$2"
+    local expected actual name
+    name="$(basename "$squashfs")"
+
+    info "Verifying SHA256..."
+
+    # Extract the expected hash for our squashfs from the SHA256SUMS file
+    expected="$(grep -E "^[0-9a-f]{64}  $name\$" "$sha256sums" | awk '{print $1}')"
+    [ -n "$expected" ] || die "No SHA256 entry for '$name' in SHA256SUMS"
+
+    actual="$(sha256sum "$squashfs" | awk '{print $1}')"
+
+    if [ "$expected" != "$actual" ]; then
+        die "SHA256 MISMATCH for $name
+  Expected: $expected
+  Got:      $actual
+  Download may be corrupted or tampered — aborting."
+    fi
+
+    info "SHA256 OK: $actual"
+}
+
+# ── Commands ──────────────────────────────────────────────────────────────────
+
+cmd_version() {
+    installed_version
+}
+
+cmd_check() {
+    local installed latest
+    installed="$(installed_version)"
+    info "Installed version: $installed"
+    info "Checking GitHub for latest release..."
+
+    local release_json
+    release_json="$(fetch_release_json)"
+    latest="$(echo "$release_json" | parse_latest_tag)"
+    info "Latest release:    $latest"
+
+    if [ "$installed" = "$latest" ]; then
+        info "You are up to date."
+        return 0
+    fi
+
+    info "Update available: $installed → $latest"
+    info "Run 'bastille-update apply' to install."
+    return 2
+}
+
+cmd_apply() {
+    require_root
+    require_live
+
+    local installed latest release_json squashfs_url sha256_url
+    installed="$(installed_version)"
+    info "Installed version: $installed"
+    info "Fetching release info..."
+
+    release_json="$(fetch_release_json)"
+    latest="$(echo "$release_json" | parse_latest_tag)"
+    info "Latest release:    $latest"
+
+    if [ "$installed" = "$latest" ]; then
+        info "Already up to date — nothing to do."
+        notify_user "Already up to date" "Bastille OS $latest is already installed."
+        return 0
+    fi
+
+    squashfs_url="$(echo "$release_json" | parse_asset_url "$SQUASHFS_ASSET")"
+    sha256_url="$(echo "$release_json" | parse_asset_url "$SHA256SUMS_ASSET")"
+
+    # Prepare download dir
+    mkdir -p "$DOWNLOAD_DIR"
+    chmod 700 "$DOWNLOAD_DIR"
+
+    local squashfs_tmp="$DOWNLOAD_DIR/$SQUASHFS_ASSET"
+    local sha256_tmp="$DOWNLOAD_DIR/SHA256SUMS"
+
+    # Clean any previous partial download
+    rm -f "$squashfs_tmp" "$sha256_tmp"
+
+    # Download SHA256SUMS first (small file)
+    download_asset "$sha256_url" "$sha256_tmp"
+
+    # Download squashfs
+    notify_user "Downloading update…" "Bastille OS $latest — do not remove the boot medium."
+    download_asset "$squashfs_url" "$squashfs_tmp"
+
+    # Verify before touching the boot medium
+    verify_sha256 "$squashfs_tmp" "$sha256_tmp"
+
+    # Remount boot medium rw and swap in the new squashfs atomically
+    require_writable_medium
+
+    local squashfs_dest="$BOOT_MEDIUM/$SQUASHFS_PATH"
+    local squashfs_dest_tmp="${squashfs_dest}.new"
+
+    info "Installing to $squashfs_dest..."
+    cp --sparse=always "$squashfs_tmp" "$squashfs_dest_tmp"
+    sync
+
+    # Atomic rename
+    mv "$squashfs_dest_tmp" "$squashfs_dest"
+    sync
+
+    # Update version file on the live medium
+    echo "$latest" > "$BOOT_MEDIUM/live/bastille-version"
+
+    # Also update the in-memory version file (won't persist past this boot)
+    echo "$latest" > "$VERSION_FILE"
+
+    restore_medium_ro
+
+    # Clean up download cache
+    rm -f "$squashfs_tmp" "$sha256_tmp"
+
+    info "Update installed: $installed → $latest"
+    info "Reboot to run the new version."
+    notify_user "Update ready — reboot to apply" \
+        "Bastille OS updated from $installed to $latest. Reboot when ready."
+}
+
+cmd_verify() {
+    require_live
+    local squashfs="$BOOT_MEDIUM/$SQUASHFS_PATH"
+    info "Computing SHA256 of installed squashfs..."
+    sha256sum "$squashfs"
+    info "Compare the above hash against the SHA256SUMS published at:"
+    info "  https://github.com/$GITHUB_REPO/releases"
+}
+
+# ── Dispatch ──────────────────────────────────────────────────────────────────
+
+case "${1:-help}" in
+    check)      cmd_check ;;
+    apply)      cmd_apply ;;
+    verify)     cmd_verify ;;
+    --version)  cmd_version ;;
+    help|--help|-h)
+        cat <<'EOF'
+bastille-update — verified in-place OS updater
+
+Usage:
+  bastille-update check       check for a newer release on GitHub
+  bastille-update apply       download, verify SHA256, and install
+  bastille-update verify      print SHA256 of the installed squashfs
+  bastille-update --version   print installed version
+
+Updates are written to the live boot medium and take effect on next reboot.
+Persistence data (home, keys, configs) is unaffected.
+EOF
+        ;;
+    *)
+        echo "Unknown command: $1" >&2
+        echo "Run 'bastille-update help' for usage." >&2
+        exit 1
+        ;;
+esac

@@ -1,0 +1,16 @@
+// Polkit rule: allow the live user to run bastille-update as root
+// without a password, but only the specific allowed actions.
+//
+// bastille-update apply is privileged (writes to the boot medium).
+// The live user never gets a sudo shell — only this targeted delegation.
+
+polkit.addRule(function(action, subject) {
+    // Only match org.freedesktop.policykit.exec for bastille-update
+    if (action.id === "org.freedesktop.policykit.exec" &&
+        action.lookup("program") === "/usr/local/sbin/bastille-update" &&
+        subject.user === "user" &&
+        subject.local === true &&
+        subject.active === true) {
+        return polkit.Result.YES;
+    }
+});

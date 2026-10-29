@@ -1,0 +1,24 @@
+#!/sbin/openrc-run
+# OpenRC service: bastille-update-check
+# Runs once at boot (after networking) to check for updates.
+# Notifies the desktop user; does NOT auto-apply.
+
+description="Bastille OS update availability check"
+
+depend() {
+    need net
+    after network-online
+}
+
+start() {
+    ebegin "Checking for Bastille OS updates"
+    start-stop-daemon --start \
+        --background \
+        --exec /usr/local/sbin/bastille-update -- check \
+        >> /var/log/bastille-update.log 2>&1
+    eend $?
+}
+
+stop() {
+    return 0
+}

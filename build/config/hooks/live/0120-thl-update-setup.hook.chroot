@@ -1,0 +1,41 @@
+#!/bin/bash
+# 0120-thl-update-setup.hook.chroot
+# Wire up bastille-update: permissions, polkit, and service enablement.
+set -euo pipefail
+
+# ── Permissions ───────────────────────────────────────────────────────────────
+chmod 700 /usr/local/sbin/bastille-update
+chmod 644 /etc/bastille/update.conf
+chmod 644 /usr/share/polkit-1/rules.d/50-bastille-update.rules
+
+# Create download cache dir with tight permissions
+mkdir -p /var/cache/bastille-update
+chmod 700 /var/cache/bastille-update
+
+# ── Service enablement ────────────────────────────────────────────────────────
+# Support both OpenRC (v29+) and systemd (current builds)
+if command -v rc-update >/dev/null 2>&1; then
+    chmod +x /etc/init.d/bastille-update-check
+    rc-update add bastille-update-check default || true
+elif command -v systemctl >/dev/null 2>&1; then
+    # Create a transient systemd unit for current builds
+    cat > /etc/systemd/system/bastille-update-check.service << 'EOF'
+[Unit]
+Description=Bastille OS update availability check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/bastille-update check
+StandardOutput=append:/var/log/bastille-update.log
+StandardError=append:/var/log/bastille-update.log
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl enable bastille-update-check.service 2>/dev/null || true
+fi
+
+echo "bastille-update: setup complete"

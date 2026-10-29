@@ -41,41 +41,68 @@ jobs:
         shell: bash
         run: bash build.sh 2>&1 | tee /tmp/bastille-build.log || { tail -20 /tmp/bastille-build.log; exit 1; }
 
-      - name: Check ISO exists
+      - name: Extract squashfs and compute checksums
         run: |
-          find . -name "*.iso" -o -name "*.img" 2>/dev/null | head -20
           ls -lh build/live-image-amd64.hybrid.iso
-          sha256sum build/live-image-amd64.hybrid.iso > bastille.iso.sha256
-          cat bastille.iso.sha256
 
-      - name: Upload ISO artifact
+          # Mount the ISO and extract the squashfs for the updater
+          mkdir -p /mnt/bastille-iso
+          mount -o loop,ro build/live-image-amd64.hybrid.iso /mnt/bastille-iso
+          cp /mnt/bastille-iso/live/filesystem.squashfs bastille-live-amd64.squashfs
+          umount /mnt/bastille-iso
+
+          # Generate SHA256SUMS covering both the ISO and the raw squashfs
+          sha256sum build/live-image-amd64.hybrid.iso > bastille-amd64.iso.sha256
+          sha256sum bastille-live-amd64.squashfs       > bastille-amd64.squashfs.sha256
+
+          # Combined SHA256SUMS (bastille-update reads this)
+          cat bastille-amd64.iso.sha256 bastille-amd64.squashfs.sha256 > SHA256SUMS-amd64
+          cat SHA256SUMS-amd64
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: bastille-iso
+          name: bastille-amd64
           path: |
             build/live-image-amd64.hybrid.iso
-            bastille.iso.sha256
+            bastille-live-amd64.squashfs
+            SHA256SUMS-amd64
           retention-days: 7
 
       - name: Upload build log (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
+          name: build-log-amd64
           path: /tmp/bastille-build.log
           retention-days: 3
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.${{ github.run_number }}-amd64
-          name: Bastille ${{ github.run_number }} (x86_64)
+          tag_name: v0.1.${{ github.run_number }}
+          name: Bastille OS v0.1.${{ github.run_number }}
           body: |
             Automated build from commit ${{ github.sha }}.
 
-            **Architecture:** x86_64 (amd64)
-            **Base:** Debian Bookworm live
+            ## Architectures
+            | Arch | File |
+            |------|------|
+            | x86_64 | `bastille-live-amd64.squashfs` · `bastille-live-amd64.iso` |
+            | ARM64  | `bastille-live-arm64.squashfs` · `bastille-live-arm64.iso`  |
+
+            ## Verify
+            ```
+            sha256sum -c SHA256SUMS
+            ```
+
+            ## Update
+            Boot into Bastille OS and run:
+            ```
+            bastille-update apply
+            ```
           draft: false
           files: |
             build/live-image-amd64.hybrid.iso
-            bastille.iso.sha256
+            bastille-live-amd64.squashfs
+            SHA256SUMS-amd64

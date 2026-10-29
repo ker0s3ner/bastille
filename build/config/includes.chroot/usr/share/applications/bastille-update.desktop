@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Bastille OS Update
+Comment=Check for and apply verified OS updates
+Exec=pkexec /usr/local/sbin/bastille-update apply
+Icon=system-software-update
+Terminal=true
+Type=Application
+Categories=System;
+Keywords=update;upgrade;bastille;security;

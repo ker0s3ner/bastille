@@ -21,11 +21,9 @@ nautilus
 gdm3
 
 # GPU drivers — Intel (amd64 only; arm64 workflow strips intel packages) and AMD
-xserver-xorg-video-intel
 xserver-xorg-video-amdgpu
 xserver-xorg-video-radeon
 firmware-amd-graphics
-intel-microcode
 firmware-misc-nonfree
 mesa-vulkan-drivers
 libgl1-mesa-dri
@@ -36,8 +34,6 @@ network-manager
 network-manager-gnome
 iproute2
 nftables
-i2pd
-
 # DNS
 systemd-resolved
 
@@ -62,8 +58,6 @@ dpkg-dev
 usbguard
 
 # Hook 0080 — firmware tools (amd64 only; arm64 workflow strips these)
-dmidecode
-msr-tools
 python3-pip
 
 # Hook 0090 — new features
@@ -110,7 +104,6 @@ fwupd
 secure-delete
 nvme-cli
 hdparm
-flashrom
 xprintidle
 python3-gi
 python3-gi-cairo
@@ -122,9 +115,18 @@ libsodium23
 secure-delete
 mat2
 rfkill
-torbrowser-launcher
 zenity
 dconf-cli
+
+# Update infrastructure
+polkit
+python3
+parted
+jq
+
+# neofetch / fastfetch
+neofetch
+fastfetch
 
 # Fonts & theming
 fonts-dejavu-core

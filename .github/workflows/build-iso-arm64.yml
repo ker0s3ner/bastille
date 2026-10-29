@@ -39,32 +39,41 @@ jobs:
       - name: Patch config for arm64
         run: |
           sed -i 's/--architectures amd64/--architectures arm64/' build/auto/config
-          # Remove x86-only packages that have no ARM64 equivalent
           sed -i '/xserver-xorg-video-intel/d' build/config/package-lists/thl-base.list.chroot
           sed -i '/intel-microcode/d'          build/config/package-lists/thl-base.list.chroot
           sed -i '/msr-tools/d'                build/config/package-lists/thl-base.list.chroot
           sed -i '/dmidecode/d'                build/config/package-lists/thl-base.list.chroot
           sed -i '/flashrom/d'                 build/config/package-lists/thl-base.list.chroot
-          sed -i '/torbrowser-launcher/d'     build/config/package-lists/thl-base.list.chroot
+          sed -i '/torbrowser-launcher/d'      build/config/package-lists/thl-base.list.chroot
 
       - name: Build ISO
         shell: bash
         run: bash build.sh 2>&1 | tee /tmp/bastille-build.log || { tail -20 /tmp/bastille-build.log; exit 1; }
 
-      - name: Check ISO exists
+      - name: Extract squashfs and compute checksums
         run: |
-          find . -name "*.iso" -o -name "*.img" 2>/dev/null | head -20
           ls -lh build/live-image-arm64.hybrid.iso
-          sha256sum build/live-image-arm64.hybrid.iso > bastille-arm64.iso.sha256
-          cat bastille-arm64.iso.sha256
 
-      - name: Upload ISO artifact
+          mkdir -p /mnt/bastille-iso
+          mount -o loop,ro build/live-image-arm64.hybrid.iso /mnt/bastille-iso
+          cp /mnt/bastille-iso/live/filesystem.squashfs bastille-live-arm64.squashfs
+          umount /mnt/bastille-iso
+
+          sha256sum build/live-image-arm64.hybrid.iso > bastille-arm64.iso.sha256
+          sha256sum bastille-live-arm64.squashfs       > bastille-arm64.squashfs.sha256
+
+          # Combined SHA256SUMS (bastille-update reads this)
+          cat bastille-arm64.iso.sha256 bastille-arm64.squashfs.sha256 > SHA256SUMS-arm64
+          cat SHA256SUMS-arm64
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: bastille-iso-arm64
+          name: bastille-arm64
           path: |
             build/live-image-arm64.hybrid.iso
-            bastille-arm64.iso.sha256
+            bastille-live-arm64.squashfs
+            SHA256SUMS-arm64
           retention-days: 7
 
       - name: Upload build log (always)
@@ -75,17 +84,15 @@ jobs:
           path: /tmp/bastille-build.log
           retention-days: 3
 
-      - name: Create Release
+      - name: Upload squashfs to existing release
+        # ARM64 uploads to the same release tag the amd64 workflow created.
+        # If no release exists yet, this creates one (idempotent via softprops).
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.${{ github.run_number }}-arm64
-          name: Bastille ${{ github.run_number }} (ARM64)
-          body: |
-            Automated build from commit ${{ github.sha }}.
-
-            **Architecture:** ARM64 (Apple Silicon, Raspberry Pi 4+)
-            **Base:** Debian Bookworm live
+          tag_name: v0.1.${{ github.run_number }}
+          name: Bastille OS v0.1.${{ github.run_number }}
           draft: false
           files: |
             build/live-image-arm64.hybrid.iso
-            bastille-arm64.iso.sha256
+            bastille-live-arm64.squashfs
+            SHA256SUMS-arm64
