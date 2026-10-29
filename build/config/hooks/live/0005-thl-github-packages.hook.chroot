@@ -1,7 +1,8 @@
 #!/bin/bash
 # Install packages not in Debian 12 stable:
-#   - fastfetch (from GitHub releases .deb)
-#   - tuigreet  (from bookworm-backports, already in archives list; this is a safety belt)
+#   - fastfetch      (from GitHub releases .deb)
+#   - dnscrypt-proxy (dropped from bookworm; from GitHub releases .deb)
+#   - tuigreet       (from bookworm-backports; safety belt)
 set -euo pipefail
 
 ARCH=$(dpkg --print-architecture)
@@ -71,5 +72,86 @@ ensure_tuigreet() {
     apt-get install -y -t bookworm-backports tuigreet
 }
 
+# ── dnscrypt-proxy ────────────────────────────────────────────────────────────
+# Dropped from Debian bookworm (was in bullseye, back in trixie). Use GitHub
+# official releases: https://github.com/DNSCrypt/dnscrypt-proxy/releases
+install_dnscrypt_proxy() {
+    if command -v dnscrypt-proxy >/dev/null 2>&1; then
+        echo "[dnscrypt-proxy] already installed, skipping"
+        return 0
+    fi
+
+    local api_url="https://api.github.com/repos/DNSCrypt/dnscrypt-proxy/releases/latest"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+
+    echo "[dnscrypt-proxy] fetching latest release info..."
+    local release_json
+    release_json=$(curl -fsSL "$api_url")
+
+    # GitHub release uses linux_ prefix with arch names: linux_amd64, linux_arm64
+    local asset_name
+    case "$ARCH" in
+        amd64) asset_name="dnscrypt-proxy-linux_x86_64-" ;;
+        arm64) asset_name="dnscrypt-proxy-linux_arm64-" ;;
+        *)     echo "[dnscrypt-proxy] unsupported arch $ARCH, skipping"; rm -rf "$tmpdir"; return 0 ;;
+    esac
+
+    local tmpjson
+    tmpjson=$(mktemp)
+    echo "$release_json" > "$tmpjson"
+
+    local tar_url tag_name
+    tar_url=$(python3 - "$tmpjson" "$asset_name" <<'PYEOF'
+import sys, json
+with open(sys.argv[1]) as f:
+    data = json.load(f)
+prefix = sys.argv[2]
+for a in data.get('assets', []):
+    if a['name'].startswith(prefix) and a['name'].endswith('.tar.gz'):
+        print(a['browser_download_url'])
+        break
+PYEOF
+) || tar_url=""
+    tag_name=$(python3 - "$tmpjson" <<'PYEOF'
+import sys, json
+with open(sys.argv[1]) as f:
+    data = json.load(f)
+print(data.get('tag_name', ''))
+PYEOF
+) || tag_name=""
+    rm -f "$tmpjson"
+
+    if [ -z "$tar_url" ]; then
+        echo "[dnscrypt-proxy] could not find tarball asset, skipping"
+        rm -rf "$tmpdir"
+        return 0
+    fi
+
+    echo "[dnscrypt-proxy] downloading $tar_url"
+    curl -fsSL -o "$tmpdir/dnscrypt.tar.gz" "$tar_url"
+    tar -C "$tmpdir" -xzf "$tmpdir/dnscrypt.tar.gz"
+
+    # Find the extracted binary
+    local bin
+    bin=$(find "$tmpdir" -name "dnscrypt-proxy" -type f | head -1)
+    if [ -z "$bin" ]; then
+        echo "[dnscrypt-proxy] binary not found in archive, skipping"
+        rm -rf "$tmpdir"
+        return 0
+    fi
+
+    install -m 755 "$bin" /usr/sbin/dnscrypt-proxy
+
+    # Create system user and dirs
+    useradd -r -s /usr/sbin/nologin -d /var/cache/dnscrypt-proxy -M _dnscrypt-proxy 2>/dev/null || true
+    install -d -m 750 -o _dnscrypt-proxy -g _dnscrypt-proxy /var/cache/dnscrypt-proxy
+
+    # Install OpenRC service (already handled by thl-systemd-units hook)
+    echo "[dnscrypt-proxy] installed version ${tag_name} OK"
+    rm -rf "$tmpdir"
+}
+
 install_fastfetch
+install_dnscrypt_proxy
 ensure_tuigreet

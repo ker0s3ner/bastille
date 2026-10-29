@@ -43,8 +43,7 @@ network-manager-gnome
 iproute2
 nftables
 
-# DNS — dnscrypt-proxy (DoH/DoT, replaces systemd-resolved)
-dnscrypt-proxy
+# DNS — dnscrypt-proxy not in Debian 12; installed via hook 0005 from GitHub releases
 
 # PGP
 gnupg2
@@ -128,8 +127,8 @@ rfkill
 zenity
 dconf-cli
 
-# Update infrastructure
-polkit
+# Update infrastructure (polkit is policykit-1 in Debian 12; dnscrypt-proxy via hook)
+policykit-1
 python3
 parted
 jq
