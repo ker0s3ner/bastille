@@ -47,6 +47,19 @@ table inet thl-killswitch {
         elements = { 2620:fe::/48, 2620:119:35::/48 }
     }
 
+    # Tor network DNS entries (exit nodes)
+    set allowed_tor_dns {
+        type ipv4_addr
+        flags interval
+        elements = { 128.0.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 }
+    }
+
+    set allowed_tor_dns6 {
+        type ipv6_addr
+        flags interval
+        elements = { fc00::/7 }
+    }
+
     # ------------------------------------------------------------------ #
     # INPUT                                                                #
     # ------------------------------------------------------------------ #
@@ -127,8 +140,26 @@ table inet thl-killswitch {
         # Allow HTTPS and common TLS ports through VPN
         oifname "wg0" tcp dport { 443, 8443, 993, 995, 465, 587 } accept
 
-        # --- All other traffic must go through WireGuard ---
+        # --- WireGuard / Tor choice ---
+        # Traffic is normally routed through WireGuard.
+        # When Tor is enabled (via thl-tor service), uncomment the lines below
+        # to route through Tor instead.
+        # oifname "wg0" accept  # WireGuard default
         oifname "wg0" accept
+
+        # Tor SOCKS proxy — allow local connections to Tor
+        oif lo accept
+        oifname "wg0" accept
+
+        # Allow connections to Tor SOCKS proxy (127.0.0.1:9050)
+        oifname lo udp dport 9050 accept
+        oifname lo tcp dport 9050 accept
+
+        # Allow DNS to reach Tor exit nodes (for .onion resolution)
+        meta skuid 101 oifname "wg0" ip daddr @allowed_tor_dns udp dport 53 accept
+        meta skuid 101 oifname "wg0" ip daddr @allowed_tor_dns tcp dport 53 accept
+        meta skuid 101 oifname "wg0" ip6 daddr @allowed_tor_dns6 udp dport 53 accept
+        meta skuid 101 oifname "wg0" ip6 daddr @allowed_tor_dns6 tcp dport 53 accept
 
         # ICMPv6 neighbour discovery outbound
         icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert,

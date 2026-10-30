@@ -126,6 +126,9 @@ cron
 secure-delete
 mat2
 rfkill
+# NTP privacy — tlsdate replaces default NTP with HTTPS-based time
+# Prevents IP leakage to time servers
+tlsdate
 
 # Update infrastructure (polkit is policykit-1 in Debian 12; dnscrypt-proxy via hook)
 policykit-1

@@ -7,9 +7,86 @@
     "DisableFirefoxStudies": true,
     "DisableTelemetry": true,
     "DisablePocket": true,
+    "DisableFormHistory": true,
     "OverrideFirstRunPage": "",
     "OverridePostUpdatePage": "",
     "NetworkPrediction": false,
-    "SearchSuggestEnabled": false
+    "SearchSuggestEnabled": false,
+    "EnableTrackingProtection": {
+      "Value": true,
+      "Locked": true,
+      "Cryptomining": true,
+      "Fingerprinting": true
+    },
+    "Homepage": {
+      "URL": "about:blank",
+      "Locked": true
+    },
+    "Cookies": {
+      "Behavior": "reject-tracker-and-partition-foreign",
+      "Locked": true
+    },
+    "Preferences": {
+      "privacy.resistFingerprinting": {
+        "Value": true,
+        "Status": "locked"
+      },
+      "media.peerconnection.enabled": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "geo.enabled": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "dom.battery.enabled": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "beacon.enabled": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "browser.send_pings": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "browser.cache.disk.enable": {
+        "Value": false,
+        "Status": "locked"
+      },
+      "browser.sessionstore.privacy_level": {
+        "Value": 2,
+        "Status": "locked"
+      },
+      "privacy.clearOnShutdown.cookies": {
+        "Value": true,
+        "Status": "locked"
+      },
+      "privacy.clearOnShutdown.history": {
+        "Value": true,
+        "Status": "locked"
+      },
+      "privacy.clearOnShutdown.cache": {
+        "Value": true,
+        "Status": "locked"
+      },
+      "network.http.referer.XOriginPolicy": {
+        "Value": 2,
+        "Status": "locked"
+      },
+      "network.http.referer.XOriginTrimmingPolicy": {
+        "Value": 2,
+        "Status": "locked"
+      },
+      "dom.event.clipboardevents.enabled": {
+        "Value": false,
+        "Status": "default"
+      },
+      "network.IDN_show_punycode": {
+        "Value": true,
+        "Status": "locked"
+      }
+    }
   }
 }

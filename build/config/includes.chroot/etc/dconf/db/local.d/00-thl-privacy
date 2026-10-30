@@ -1,8 +1,10 @@
-# Bastille — GNOME privacy & security defaults
+# Bastille — privacy defaults for GTK apps running under Sway
+# Note: GNOME shell is not present; these are hints to GTK/portal-aware apps.
+# Camera/mic hardware kill is enforced by modprobe blacklist (thl-blacklist.conf).
 
 [org/gnome/desktop/privacy]
-disable-microphone=false
-disable-camera=false
+disable-microphone=true
+disable-camera=true
 remember-recent-files=false
 remove-old-trash-files=true
 remove-old-temp-files=true
@@ -10,28 +12,8 @@ old-files-age=uint32 1
 send-software-usage-stats=false
 report-technical-problems=false
 
-[org/gnome/desktop/screensaver]
-lock-enabled=true
-lock-delay=uint32 0
-
-[org/gnome/desktop/session]
-idle-delay=uint32 300
-
 [org/gnome/system/location]
 enabled=false
-
-[org/gnome/desktop/notifications]
-show-banners=false
-
-[org/gnome/desktop/interface]
-clock-show-seconds=true
-clock-format='24h'
-
-[org/gnome/settings-daemon/plugins/media-keys]
-screensaver=['<Super>l']
-
-[org/gnome/shell]
-disable-user-extensions=false
 
 [org/gnome/desktop/search-providers]
 disable-external=true

@@ -1,0 +1,22 @@
+#!/sbin/openrc-run
+# Bastille — HTTPS-based NTP via tlsdate
+# Replaces default NTP which reveals IP to time servers
+
+description="THL NTP via tlsdate"
+
+depend() {
+    after network
+    before time
+}
+
+start() {
+    ebegin "Starting tlsdate NTP service"
+    /usr/bin/tlsdate -s
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping tlsdate"
+    kill -TERM $PID 2>/dev/null || true
+    eend 0
+}

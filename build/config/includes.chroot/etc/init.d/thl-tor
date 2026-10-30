@@ -1,0 +1,21 @@
+#!/sbin/openrc-run
+# Bastille — Tor anonymity network (opt-in)
+
+description="THL Tor anonymity network"
+
+depend() {
+    after net
+    before firewall
+}
+
+start() {
+    ebegin "Starting Tor anonymity network"
+    /usr/sbin/tor -f /etc/tor/torrc
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping Tor"
+    /usr/bin/torctl stop 2>/dev/null || true
+    eend 0
+}

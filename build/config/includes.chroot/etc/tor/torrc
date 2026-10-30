@@ -1,0 +1,21 @@
+# THL — Tor opt-in configuration
+# This config is used when the user enables Tor mode.
+# Exit policies restrict to prevent abuse while allowing basic anonymity.
+
+ExitPolicy reject *:*: 
+SOCKSPort 127.0.0.1:9050
+ControlPort 127.0.0.1:9051
+CookieAuthFile /var/lib/tor/control.auth.cookie
+
+# Logging
+Log notice file /var/log/tor/notices.log
+Log notice verbosity 3
+
+# Performance
+MaxCircuitDirtiness 5min
+
+# Data streams entered or left at this address only
+AssumeIRIDirty 1
+
+# Use the following when running as a relay is not desired
+AvoidDiskWrites 1
