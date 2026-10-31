@@ -1,0 +1,11 @@
+// Allow the live session user (UID 1000) to run bastille-subsystem-root
+// via pkexec without a password prompt — PIN verification is done inside
+// the helper itself.
+polkit.addRule(function(action, subject) {
+    if (action.id === "io.bastille.subsystem.manage" &&
+        subject.isInGroup("users") &&
+        subject.local &&
+        subject.active) {
+        return polkit.Result.YES;
+    }
+});

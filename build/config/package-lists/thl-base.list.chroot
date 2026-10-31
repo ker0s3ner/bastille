@@ -131,8 +131,10 @@ libwebkit2gtk-4.1-0
 pavucontrol
 lxpolkit
 
-# Age encryption (bastille-notes)
+# Age encryption (bastille-notes, bastille-subsystem)
 age
+# argon2 CLI — PIN key derivation for subsystems
+argon2
 
 # Disk installer dependencies
 squashfs-tools

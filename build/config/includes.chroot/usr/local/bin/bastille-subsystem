@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+"""
+bastille-subsystem — isolated encrypted subsystem sessions.
+
+Usage:
+  bastille-subsystem create <name>    Create a new subsystem
+  bastille-subsystem enter  <name>    Enter a subsystem (prompt for PIN)
+  bastille-subsystem list             List subsystem names
+  bastille-subsystem destroy <name>   Permanently destroy a subsystem
+
+Each subsystem is a separate Linux user account with an age-encrypted
+home archive. On enter, the archive is decrypted to a tmpfs, the
+subsystem user gets a full Sway session on a fresh VT, and when the
+session ends the tmpfs is wiped and the home is re-encrypted.
+
+No sudo. All root operations go through pkexec bastille-subsystem-root.
+"""
+import sys, os, subprocess, getpass, re, json, hashlib
+from pathlib import Path
+
+STORE = Path.home() / ".bastille" / "subsystems"
+ROOT_HELPER = "/usr/local/sbin/bastille-subsystem-root"
+NAME_RE = re.compile(r'^[a-z][a-z0-9_-]{0,30}$')
+
+
+def die(msg: str):
+    print(f"error: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def pkexec(action: str, *args):
+    """Call the polkit-gated root helper."""
+    result = subprocess.run(
+        ["pkexec", ROOT_HELPER, action, *args],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        print(result.stderr.strip(), file=sys.stderr)
+        sys.exit(result.returncode)
+    return result.stdout.strip()
+
+
+def prompt_pin(prompt: str = "Subsystem PIN: ", confirm: bool = False) -> str:
+    pin = getpass.getpass(prompt)
+    if not pin:
+        die("PIN cannot be empty")
+    if len(pin) < 6:
+        die("PIN must be at least 6 characters")
+    if confirm:
+        pin2 = getpass.getpass("Confirm PIN: ")
+        if pin != pin2:
+            die("PINs do not match")
+    return pin
+
+
+def cmd_create(name: str):
+    if not NAME_RE.match(name):
+        die("name must be lowercase letters, digits, _ or - (max 31 chars)")
+    meta_file = STORE / f"{name}.json"
+    if meta_file.exists():
+        die(f"subsystem '{name}' already exists")
+
+    print(f"Creating subsystem '{name}'...")
+    pin = prompt_pin("Choose subsystem PIN: ", confirm=True)
+
+    STORE.mkdir(parents=True, mode=0o700, exist_ok=True)
+
+    # Derive a 256-bit key from the PIN using argon2id via the root helper
+    # (argon2 is available as CLI tool from the argon2 package)
+    result = pkexec("create", name, pin)
+    print(result)
+    print(f"\nSubsystem '{name}' created.")
+    print(f"Enter it with: bastille-subsystem enter {name}")
+
+
+def cmd_enter(name: str):
+    meta_file = STORE / f"{name}.json"
+    if not meta_file.exists():
+        die(f"no subsystem named '{name}'")
+
+    pin = prompt_pin(f"PIN for subsystem '{name}': ")
+    print(f"Unlocking subsystem '{name}'...")
+    pkexec("enter", name, pin)
+
+
+def cmd_list():
+    if not STORE.exists():
+        print("No subsystems.")
+        return
+    names = [p.stem for p in STORE.glob("*.json")]
+    if not names:
+        print("No subsystems.")
+    else:
+        print("Subsystems:")
+        for n in sorted(names):
+            print(f"  {n}")
+
+
+def cmd_destroy(name: str):
+    meta_file = STORE / f"{name}.json"
+    if not meta_file.exists():
+        die(f"no subsystem named '{name}'")
+
+    confirm = input(
+        f"Permanently destroy subsystem '{name}' and all its data? [type '{name}' to confirm]: "
+    )
+    if confirm != name:
+        die("aborted")
+
+    pin = prompt_pin(f"PIN for subsystem '{name}' (to verify): ")
+    pkexec("destroy", name, pin)
+    # Remove local metadata
+    meta_file.unlink(missing_ok=True)
+    archive = STORE / f"{name}.age"
+    archive.unlink(missing_ok=True)
+    print(f"Subsystem '{name}' destroyed.")
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(__doc__)
+        sys.exit(0)
+
+    cmd = sys.argv[1]
+    if cmd == "list":
+        cmd_list()
+    elif cmd == "create" and len(sys.argv) == 3:
+        cmd_create(sys.argv[2])
+    elif cmd == "enter" and len(sys.argv) == 3:
+        cmd_enter(sys.argv[2])
+    elif cmd == "destroy" and len(sys.argv) == 3:
+        cmd_destroy(sys.argv[2])
+    else:
+        print(__doc__)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

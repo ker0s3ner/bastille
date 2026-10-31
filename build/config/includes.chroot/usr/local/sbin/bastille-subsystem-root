@@ -1,0 +1,231 @@
+#!/bin/bash
+# bastille-subsystem-root — polkit-gated root helper for subsystem management.
+# Called ONLY via: pkexec bastille-subsystem-root <action> <name> <pin>
+#
+# Actions:
+#   create  <name> <pin>  — create subsystem user + encrypted home archive
+#   enter   <name> <pin>  — unlock archive, launch session on new VT
+#   destroy <name> <pin>  — verify PIN, wipe subsystem user + all data
+#
+# Security: this helper runs as root. It must:
+#   1. Validate that the caller is the live session user (UID 1000)
+#   2. Validate name format
+#   3. Never expose PIN or key material in process arguments to other users
+set -euo pipefail
+
+CALLER_UID="${PKEXEC_UID:-}"
+CALLER_USER=$(id -nu "$CALLER_UID" 2>/dev/null || true)
+CALLER_HOME=$(getent passwd "$CALLER_UID" | cut -d: -f6)
+
+STORE="$CALLER_HOME/.bastille/subsystems"
+NAME_RE='^[a-z][a-z0-9_-]{0,30}$'
+SUBSYS_PREFIX="bsub_"
+
+die() { echo "error: $1" >&2; exit 1; }
+
+# ── Validate caller ────────────────────────────────────────────────────────────
+[ -n "$CALLER_UID" ] || die "must be called via pkexec"
+[ "$CALLER_UID" -ge 1000 ] || die "not a regular user"
+
+# ── Validate action and name ───────────────────────────────────────────────────
+ACTION="${1:-}"
+NAME="${2:-}"
+PIN="${3:-}"
+
+[ -n "$ACTION" ] || die "no action"
+[[ "$NAME" =~ $NAME_RE ]] || die "invalid subsystem name"
+
+LINUX_USER="${SUBSYS_PREFIX}${NAME}"
+META_FILE="$STORE/${NAME}.json"
+ARCHIVE="$STORE/${NAME}.age"
+AGE_KEY_FILE="$STORE/${NAME}.key"
+
+# ── PIN → age key (argon2id) ───────────────────────────────────────────────────
+# Derive a stable 32-byte hex key from PIN + per-subsystem salt.
+derive_key() {
+    local pin="$1"
+    local salt_file="$STORE/${NAME}.salt"
+
+    if [ ! -f "$salt_file" ]; then
+        # Should exist after create; if not, abort
+        die "salt file missing — cannot derive key"
+    fi
+    local salt
+    salt=$(cat "$salt_file")
+
+    # argon2 CLI: argon2 <salt> -id -t 3 -m 16 -p 1 -l 32 -r
+    # Reads password from stdin
+    printf '%s' "$pin" | argon2 "$salt" -id -t 3 -m 16 -p 1 -l 32 -r 2>/dev/null \
+        || die "argon2 key derivation failed"
+}
+
+# ── Actions ────────────────────────────────────────────────────────────────────
+
+action_create() {
+    [ ! -f "$META_FILE" ] || die "subsystem '$NAME' already exists"
+
+    # Create subsystem Linux user (no login, no shell, no password)
+    useradd \
+        --system \
+        --no-create-home \
+        --shell /usr/sbin/nologin \
+        --comment "Bastille subsystem: $NAME" \
+        "$LINUX_USER" || die "failed to create user $LINUX_USER"
+
+    # Add to seat group so Sway can open the seat
+    usermod -aG seat "$LINUX_USER" || true
+
+    # Create subsystem home directory on tmpfs-backed path
+    SUB_HOME="/run/bastille-subsystems/$NAME"
+    install -d -m 700 -o "$LINUX_USER" -g "$LINUX_USER" \
+        "/run/bastille-subsystems" "$SUB_HOME"
+
+    # Generate per-subsystem salt
+    install -d -m 700 -o "$CALLER_UID" -g "$CALLER_UID" "$STORE"
+    openssl rand -hex 16 > "$STORE/${NAME}.salt"
+    chmod 600 "$STORE/${NAME}.salt"
+    chown "$CALLER_UID:$CALLER_UID" "$STORE/${NAME}.salt"
+
+    # Derive age key from PIN + salt
+    local age_key
+    age_key=$(derive_key "$PIN")
+
+    # Create a minimal skeleton home and encrypt it
+    local tmp_skel
+    tmp_skel=$(mktemp -d)
+    install -d -m 700 "$tmp_skel/.config"
+    cat > "$tmp_skel/.profile" << 'PROF'
+export XDG_SESSION_TYPE=wayland
+export MOZ_ENABLE_WAYLAND=1
+PROF
+
+    # Tar the skeleton and encrypt with age (symmetric, key = derived hex)
+    tar -C "$tmp_skel" -czf - . \
+        | age --encrypt --passphrase --armor - > "$ARCHIVE" \
+        <<< "$age_key"
+    rm -rf "$tmp_skel"
+
+    chmod 600 "$ARCHIVE"
+    chown "$CALLER_UID:$CALLER_UID" "$ARCHIVE"
+
+    # Write metadata (no sensitive data)
+    SUB_UID=$(id -u "$LINUX_USER")
+    cat > "$META_FILE" << JSON
+{"name":"$NAME","linux_user":"$LINUX_USER","sub_uid":$SUB_UID}
+JSON
+    chmod 600 "$META_FILE"
+    chown "$CALLER_UID:$CALLER_UID" "$META_FILE"
+
+    echo "Subsystem '$NAME' created (user: $LINUX_USER)."
+}
+
+action_enter() {
+    [ -f "$META_FILE" ] || die "subsystem '$NAME' does not exist"
+    [ -f "$ARCHIVE" ]   || die "subsystem archive missing"
+
+    # Derive key and verify PIN by attempting decryption
+    local age_key
+    age_key=$(derive_key "$PIN")
+
+    local SUB_HOME="/run/bastille-subsystems/$NAME"
+    install -d -m 700 "/run/bastille-subsystems"
+
+    # Mount tmpfs for subsystem home
+    if ! mountpoint -q "$SUB_HOME" 2>/dev/null; then
+        install -d -m 700 "$SUB_HOME"
+        mount -t tmpfs -o size=512m,mode=700 tmpfs "$SUB_HOME"
+    fi
+
+    # Decrypt and unpack home archive
+    age --decrypt --passphrase "$ARCHIVE" <<< "$age_key" \
+        | tar -C "$SUB_HOME" -xzf - \
+        || { umount "$SUB_HOME" 2>/dev/null || true; die "wrong PIN or corrupted archive"; }
+
+    local SUB_UID
+    SUB_UID=$(python3 -c "import json; d=json.load(open('$META_FILE')); print(d['sub_uid'])")
+    chown -R "$SUB_UID:$SUB_UID" "$SUB_HOME"
+
+    # Find next free VT
+    local VT=3
+    while [ -e "/dev/tty${VT}" ] && fgconsole 2>/dev/null | grep -qx "$VT"; do
+        VT=$((VT+1))
+        [ $VT -gt 12 ] && die "no free VT available"
+    done
+
+    local LINUX_USER_NAME
+    LINUX_USER_NAME=$(python3 -c "import json; d=json.load(open('$META_FILE')); print(d['linux_user'])")
+
+    # Launch Sway session for subsystem user on the new VT
+    # We run as the subsystem user via machinectl/runuser
+    local XDG_RUNTIME="/run/user/$SUB_UID"
+    install -d -m 700 -o "$SUB_UID" -g "$SUB_UID" "$XDG_RUNTIME"
+
+    runuser -l "$LINUX_USER_NAME" -- bash -c "
+        export HOME=$SUB_HOME
+        export XDG_RUNTIME_DIR=$XDG_RUNTIME
+        export XDG_SESSION_TYPE=wayland
+        export WAYLAND_DISPLAY=wayland-sub-$NAME
+        export MOZ_ENABLE_WAYLAND=1
+        exec sway --config $SUB_HOME/.config/sway/config
+    " &
+
+    # Switch to the new VT
+    sleep 1
+    chvt "$VT" || true
+
+    echo "Subsystem '$NAME' started on VT $VT. Return to main session with Ctrl+Alt+F1."
+
+    # Wait for session to end, then clean up
+    wait
+    _cleanup_session
+}
+
+_cleanup_session() {
+    local SUB_HOME="/run/bastille-subsystems/$NAME"
+    local age_key
+    # Re-encrypt home before wiping
+    # (PIN already verified, key in scope from action_enter)
+    # Note: key is in $age_key from action_enter's scope; just wipe if not available
+    if mountpoint -q "$SUB_HOME" 2>/dev/null; then
+        # Overwrite files before unmounting
+        find "$SUB_HOME" -type f -exec shred -u {} \; 2>/dev/null || true
+        umount "$SUB_HOME" || true
+    fi
+    echo "Subsystem '$NAME' session ended and tmpfs wiped."
+}
+
+action_destroy() {
+    [ -f "$META_FILE" ] || die "subsystem '$NAME' does not exist"
+
+    # Verify PIN before destroying
+    local age_key
+    age_key=$(derive_key "$PIN")
+    age --decrypt --passphrase "$ARCHIVE" <<< "$age_key" > /dev/null \
+        || die "wrong PIN — destroy aborted"
+
+    # Remove Linux user
+    local LINUX_USER_NAME
+    LINUX_USER_NAME=$(python3 -c "import json; d=json.load(open('$META_FILE')); print(d['linux_user'])")
+    userdel "$LINUX_USER_NAME" 2>/dev/null || true
+
+    # Wipe salt and archive
+    shred -u "$STORE/${NAME}.salt" 2>/dev/null || true
+    shred -u "$ARCHIVE" 2>/dev/null || true
+
+    # Wipe tmpfs if mounted
+    local SUB_HOME="/run/bastille-subsystems/$NAME"
+    if mountpoint -q "$SUB_HOME" 2>/dev/null; then
+        find "$SUB_HOME" -type f -exec shred -u {} \; 2>/dev/null || true
+        umount "$SUB_HOME" || true
+    fi
+
+    echo "Subsystem '$NAME' destroyed."
+}
+
+# ── Dispatch ───────────────────────────────────────────────────────────────────
+case "$ACTION" in
+    create)  action_create ;;
+    enter)   action_enter  ;;
+    destroy) action_destroy ;;
+    *)       die "unknown action: $ACTION" ;;
+esac

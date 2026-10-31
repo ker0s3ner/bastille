@@ -15,7 +15,8 @@ for bin in \
     /usr/local/bin/bastille-calendar \
     /usr/local/bin/bastille-weather \
     /usr/local/bin/bastille-maps \
-    /usr/local/bin/bastille-update; do
+    /usr/local/bin/bastille-update \
+    /usr/local/bin/bastille-subsystem; do
     [ -f "$bin" ] && chmod 755 "$bin"
 done
 
@@ -27,7 +28,8 @@ for sbin in \
     /usr/local/sbin/bastille-set-wg \
     /usr/local/sbin/bastille-set-dns \
     /usr/local/sbin/bastille-update \
-    /usr/local/sbin/bastille-install; do
+    /usr/local/sbin/bastille-install \
+    /usr/local/sbin/bastille-subsystem-root; do
     [ -f "$sbin" ] && chmod 700 "$sbin" && chown root:root "$sbin"
 done
 
