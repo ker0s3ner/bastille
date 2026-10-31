@@ -1,9 +1,9 @@
 #!/bin/sh
 # Deploy default Sway config for the live user.
+# Use /etc/skel — live-boot copies it to /home/user at first boot.
 set -e
 
-USER_HOME=/home/user
-CONFIG_DIR="$USER_HOME/.config/sway"
+CONFIG_DIR="/etc/skel/.config/sway"
 mkdir -p "$CONFIG_DIR"
 
 cat > "$CONFIG_DIR/config" << 'EOF'
@@ -106,4 +106,4 @@ bar {
 include /etc/sway/config.d/*
 EOF
 
-chown -R user:user "$USER_HOME/.config"
+# No chown needed — live-boot copies /etc/skel to /home/user with correct ownership
