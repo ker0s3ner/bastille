@@ -23,7 +23,9 @@ if dpkg -l systemd-sysv 2>/dev/null | grep -q '^ii'; then
 fi
 
 # ── 3. Install sysvinit-core now that the conflict is resolved ─────────────────
-apt-get -y --no-install-recommends \
+# -f fixes the 'init' package left broken after systemd-sysv removal,
+# while simultaneously installing sysvinit-core to satisfy it
+apt-get -y -f --no-install-recommends \
     -o Dpkg::Options::="--force-depends" \
     install sysvinit-core sysvinit-utils initscripts
 
