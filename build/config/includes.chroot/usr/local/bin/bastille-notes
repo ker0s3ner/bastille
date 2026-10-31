@@ -312,7 +312,7 @@ class NotesWindow(Adw.ApplicationWindow):
     def _prompt_note_pin(self, row: NoteRow):
         dlg = Adw.MessageDialog.new(self)
         dlg.set_heading("PIN required")
-        dlg.set_body(f"Enter PIN to view "{row.path.stem}".")
+        dlg.set_body(f'Enter PIN to view "{row.path.stem}".')
         entry = Gtk.PasswordEntry()
         entry.set_show_peek_icon(True)
         entry.set_placeholder_text("PIN")

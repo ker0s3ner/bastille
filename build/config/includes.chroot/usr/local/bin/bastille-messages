@@ -218,7 +218,7 @@ class MessagesWindow(Adw.ApplicationWindow):
     def _prompt_pin(self, cid, cdata):
         dlg = Adw.MessageDialog.new(self)
         dlg.set_heading("PIN required")
-        dlg.set_body(f"Enter the PIN to view "{cdata.get('name', cid)}".")
+        dlg.set_body(f'Enter the PIN to view "{cdata.get("name", cid)}".')
         entry = Gtk.PasswordEntry()
         entry.set_show_peek_icon(True)
         entry.set_placeholder_text("PIN")
