@@ -189,7 +189,7 @@ static int keystore_read(const char *path, keystore_t *ks)
 
         if      (strcmp(key, "version")   == 0) ks->version = atoi(val);
         else if (strcmp(key, "luks_uuid") == 0)
-            strncpy(ks->luks_uuid, val, MAX_UUID - 1);
+            snprintf(ks->luks_uuid, MAX_UUID, "%s", val);
         else if (strcmp(key, "argon_ops") == 0)
             ks->argon_ops = (uint64_t)strtoull(val, NULL, 10);
         else if (strcmp(key, "argon_mem") == 0)
@@ -453,6 +453,7 @@ static int luks_add_key(const char *device, const char *existing_key,
     }
     close(pfd[0]);
     ssize_t w = write(pfd[1], new_key, new_len);
+    (void)w;
     close(pfd[1]);
 
     int status;
@@ -462,7 +463,7 @@ static int luks_add_key(const char *device, const char *existing_key,
     fd = open(tmp_existing, O_WRONLY);
     if (fd >= 0) {
         uint8_t zeros[256] = {0};
-        write(fd, zeros, existing_len < sizeof(zeros) ? existing_len : sizeof(zeros));
+        (void)write(fd, zeros, existing_len < sizeof(zeros) ? existing_len : sizeof(zeros));
         close(fd);
     }
     unlink(tmp_existing);
