@@ -47,13 +47,13 @@ chmod 644 /usr/share/polkit-1/rules.d/50-bastille-helpers.rules 2>/dev/null || t
 # ── Desktop database ──────────────────────────────────────────────────────────
 update-desktop-database /usr/share/applications 2>/dev/null || true
 
-# ── greetd — configure with wlgreet (Wayland greeter) ────────────────────────
+# ── greetd — configure with agreety (text greeter, bundled with greetd) ───────
 cat > /etc/greetd/config.toml << 'TOML'
 [terminal]
 vt = 1
 
 [default_session]
-command = "wlgreet --command sway"
+command = "agreety --cmd sway"
 user = "greeter"
 TOML
 

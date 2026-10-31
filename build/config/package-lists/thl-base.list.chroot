@@ -30,9 +30,8 @@ kanshi
 brightnessctl
 mako-notifier
 
-# Greeter
+# Greeter (agreety text greeter is bundled with greetd)
 greetd
-wlgreet
 
 # GPU drivers
 firmware-amd-graphics
