@@ -1,35 +1,30 @@
 #!/bin/sh
 # Runs AFTER all packages are installed.
-# Swaps systemd-sysv (the PID-1 symlink) for sysvinit-core + openrc.
-# We keep the base systemd package so libsystemd0 continues to satisfy
-# any package that links against it. Only the init symlink changes.
+# Switches PID-1 from systemd-sysv to sysvinit-core and adds openrc.
+#
+# Key insight: openrc does NOT conflict with systemd-sysv in Debian 12.
+# sysvinit-core DOES conflict with systemd-sysv.
+# So the correct order is:
+#   1. Install openrc (and all its deps) while systemd-sysv is still present
+#   2. Force-purge systemd-sysv
+#   3. Install sysvinit-core (conflict gone)
 set -e
 
 export DEBIAN_FRONTEND=noninteractive
 
-# ── 1. Write apt.conf so dpkg uses --force-depends during this hook ───────────
-mkdir -p /etc/apt/apt.conf.d
-cat > /etc/apt/apt.conf.d/99bastille-force << 'APT'
-APT::Get::allow-remove-essential "true";
-Dpkg::Options:: "--force-depends";
-Dpkg::Options:: "--force-remove-essential";
-APT
+# ── 1. Install openrc and its full dep chain (no conflict with systemd-sysv) ──
+apt-get -y --no-install-recommends install openrc
 
-# ── 2. Force-purge systemd-sysv via dpkg (bypasses apt conflict resolver) ─────
-# systemd-sysv owns /sbin/init -> /lib/systemd/systemd
-# sysvinit-core conflicts with systemd-sysv (both provide /sbin/init)
+# ── 2. Force-purge systemd-sysv (the PID-1 init symlink) ─────────────────────
+# sysvinit-core conflicts with systemd-sysv, so remove it first.
+# Keep the base systemd package — libsystemd0 satisfies many other packages.
 if dpkg -l systemd-sysv 2>/dev/null | grep -q '^ii'; then
     dpkg --force-depends --force-remove-essential --purge systemd-sysv
 fi
 
-# ── 3. Install full sysvinit + openrc dependency chain ────────────────────────
-# insserv: required by openrc; initscripts: required by sysvinit-core
-# List them explicitly so apt doesn't refuse to resolve them transitively
+# ── 3. Install sysvinit-core now that the conflict is resolved ─────────────────
 apt-get -y --no-install-recommends \
     -o Dpkg::Options::="--force-depends" \
-    install insserv initscripts sysvinit-core sysvinit-utils openrc
-
-# ── 4. Remove the force-depends override so future apt runs are normal ─────────
-rm -f /etc/apt/apt.conf.d/99bastille-force
+    install sysvinit-core sysvinit-utils initscripts
 
 echo "[0001] sysvinit-core + openrc installed, systemd-sysv purged"
