@@ -1,6 +1,8 @@
 name: Build Bastille ISO
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -39,7 +41,7 @@ jobs:
 
       - name: Build ISO
         shell: bash
-        run: bash build.sh 2>&1 | tee /tmp/bastille-build.log || { tail -20 /tmp/bastille-build.log; exit 1; }
+        run: bash build.sh --architectures amd64 2>&1 | tee /tmp/bastille-build.log || { tail -20 /tmp/bastille-build.log; exit 1; }
 
       - name: Extract squashfs and compute checksums
         run: |
