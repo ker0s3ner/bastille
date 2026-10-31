@@ -6,40 +6,39 @@ set -e
 
 export DEBIAN_FRONTEND=noninteractive
 
-# ── 1. Prevent systemd from ever being re-installed ───────────────────────────
+# ── 1. Pin systemd at -1 so apt never (re-)installs it ───────────────────────
 cat > /etc/apt/preferences.d/no-systemd << 'PIN'
 Package: systemd systemd-sysv systemd-timesyncd libsystemd0 systemd-resolved
 Pin: release *
 Pin-Priority: -1
 PIN
 
-# ── 2. Hold any currently installed systemd packages ─────────────────────────
-for pkg in systemd systemd-sysv systemd-timesyncd libsystemd0 systemd-resolved; do
-    dpkg -l "$pkg" >/dev/null 2>&1 && echo "$pkg hold" | dpkg --set-selections || true
-done
-
-# ── 3. Install sysvinit + openrc first (before they conflict) ─────────────────
-apt-get -y --no-install-recommends install \
-    sysvinit-core sysvinit-utils openrc 2>/dev/null || true
-
-# ── 4. Now force-remove systemd packages that conflict with elogind ───────────
-# Use --force-depends since sysvinit is already in place
-for pkg in systemd-sysv systemd-timesyncd systemd; do
-    dpkg -l "$pkg" >/dev/null 2>&1 && \
-        dpkg --force-depends --force-remove-essential --purge "$pkg" 2>/dev/null || true
-done
-
-# libsystemd0 conflicts with libelogind0 — replace with libelogind0
-dpkg -l libsystemd0 >/dev/null 2>&1 && \
-    apt-get -y --no-install-recommends install \
-        --allow-remove-essential \
-        libelogind0 2>/dev/null || \
-    apt-get -y --no-install-recommends install libelogind0 2>/dev/null || true
-
-# ── 5. Make apt-get ignore systemd conflicts going forward ────────────────────
-cat >> /etc/apt/apt.conf.d/99bastille-no-systemd << 'APT'
+# ── 2. Allow apt to force-remove essential packages and ignore dep errors ─────
+mkdir -p /etc/apt/apt.conf.d
+cat > /etc/apt/apt.conf.d/99bastille-no-systemd << 'APT'
 APT::Get::allow-remove-essential "true";
 Dpkg::Options:: "--force-depends";
+Dpkg::Options:: "--force-remove-essential";
 APT
+
+# ── 3. Force-purge systemd packages via dpkg directly (bypasses apt resolver) ─
+# NOTE: do NOT use dpkg --set-selections hold — that causes "held broken
+# packages" errors when apt tries to remove them to satisfy elogind conflicts.
+for pkg in systemd-sysv systemd-timesyncd systemd libsystemd0 systemd-resolved; do
+    if dpkg -l "$pkg" 2>/dev/null | grep -q '^ii'; then
+        dpkg --force-depends --force-remove-essential --purge "$pkg" 2>/dev/null || true
+    fi
+done
+
+# ── 4. Install sysvinit + openrc now that systemd is gone ─────────────────────
+apt-get -y --no-install-recommends \
+    -o Dpkg::Options::="--force-depends" \
+    -o Dpkg::Options::="--force-remove-essential" \
+    install sysvinit-core sysvinit-utils openrc
+
+# ── 5. Install libelogind0 to replace libsystemd0 ─────────────────────────────
+apt-get -y --no-install-recommends \
+    -o Dpkg::Options::="--force-depends" \
+    install libelogind0 2>/dev/null || true
 
 echo "[0001] systemd purge complete, sysvinit+openrc installed"
