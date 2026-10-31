@@ -47,16 +47,14 @@ chmod 644 /usr/share/polkit-1/rules.d/50-bastille-helpers.rules 2>/dev/null || t
 # ── Desktop database ──────────────────────────────────────────────────────────
 update-desktop-database /usr/share/applications 2>/dev/null || true
 
-# ── greetd — update config to use gtkgreet if available ──────────────────────
-if command -v gtkgreet >/dev/null 2>&1; then
-    cat > /etc/greetd/config.toml << 'TOML'
+# ── greetd — configure with wlgreet (Wayland greeter) ────────────────────────
+cat > /etc/greetd/config.toml << 'TOML'
 [terminal]
 vt = 1
 
 [default_session]
-command = "gtkgreet -l -s /etc/greetd/bastille.css -c sway"
+command = "wlgreet --command sway"
 user = "greeter"
 TOML
-fi
 
 echo "bastille-apps-setup: done"

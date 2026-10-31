@@ -9,8 +9,7 @@ pgrep -x mako >/dev/null 2>&1 || mako &
 pgrep -f nm-applet >/dev/null 2>&1 || nm-applet --indicator &
 
 # polkit agent
-pgrep -f polkit-gnome >/dev/null 2>&1 || \
-    /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+pgrep -f lxpolkit >/dev/null 2>&1 || lxpolkit &
 
 # kanshi (display layout daemon)
 pgrep -x kanshi >/dev/null 2>&1 || kanshi &
