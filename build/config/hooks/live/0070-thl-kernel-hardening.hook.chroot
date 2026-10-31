@@ -2,8 +2,8 @@
 # Apply kernel hardening configuration inside the chroot.
 set -e
 
-# Enable USBGuard
-systemctl enable usbguard.service
+# USBGuard is enabled via OpenRC in hook 0010 (rc-update add usbguard).
+# Do NOT call systemctl here — we use OpenRC, not systemd.
 
 # Default USBGuard policy: block everything not present at install time.
 # Users add devices via: usbguard allow-device <id>
@@ -56,32 +56,13 @@ cat >> /etc/security/limits.conf << 'EOF'
 * soft core 0
 EOF
 
-# Disable coredumps via systemd
-mkdir -p /etc/systemd/coredump.conf.d
-cat > /etc/systemd/coredump.conf.d/thl.conf << 'EOF'
-[Coredump]
-Storage=none
-ProcessSizeMax=0
-EOF
+# Disable coredumps via PAM (OpenRC does not use systemd coredump handling)
+# limits.conf already has hard core 0 from the block above.
+# Also disable via sysctl (backed by 99-thl-hardening.conf):
+#   fs.suid_dumpable = 0
 
-# Screen lock triggers eviction of ram_half
-# Wire swaylock exit → thl-keyguard evict via a systemd user service
-mkdir -p /etc/systemd/user
-cat > /etc/systemd/user/thl-evict-on-lock.service << 'EOF'
-[Unit]
-Description=THL evict RAM half on screen lock
-After=graphical-session.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/thl-keyguard evict
-ExecStop=/bin/true
-
-[Install]
-WantedBy=graphical-session.target
-EOF
-
-# swayidle hook: run eviction after idle+lock timeout
-# (injected into Sway config by the user-level hook)
+# Screen lock eviction: handled by swayidle in the Sway config.
+# swayidle calls swaylock and, on unlock, runs thl-keyguard evict.
+# (injected into Sway config by hook 0030)
 
 echo "Kernel hardening and USBGuard configured."

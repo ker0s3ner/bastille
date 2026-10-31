@@ -1,0 +1,25 @@
+#!/sbin/openrc-run
+# Bastille — randomise hostname at every boot
+# Prevents local-network tracking by a consistent hostname beacon
+
+description="Randomise hostname at boot"
+
+depend() {
+    before network
+    keyword -shutdown
+}
+
+start() {
+    ebegin "Randomising hostname"
+    local suffix
+    suffix=$(tr -dc 'a-f0-9' < /dev/urandom | head -c 8)
+    local hostname="bastille-${suffix}"
+    hostname "$hostname"
+    echo "$hostname" > /etc/hostname
+    # Update /etc/hosts loopback entry
+    sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t${hostname}/" /etc/hosts
+    if ! grep -q '^127\.0\.1\.1' /etc/hosts; then
+        echo "127.0.1.1	${hostname}" >> /etc/hosts
+    fi
+    eend $?
+}

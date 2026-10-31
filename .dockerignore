@@ -1,0 +1,8 @@
+build/chroot
+build/binary
+build/cache
+build/.build
+build/live-image-*.iso
+build/live-image-*.img
+build/*.sha256
+output/

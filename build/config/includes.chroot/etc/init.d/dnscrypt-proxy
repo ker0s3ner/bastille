@@ -1,0 +1,37 @@
+#!/sbin/openrc-run
+# Bastille — dnscrypt-proxy encrypted DNS resolver
+# Binary installed to /usr/sbin/dnscrypt-proxy via hook 0005 (GitHub release)
+# Config at /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+
+description="dnscrypt-proxy encrypted DNS"
+pidfile="/run/dnscrypt-proxy.pid"
+command="/usr/sbin/dnscrypt-proxy"
+command_args="-config /etc/dnscrypt-proxy/dnscrypt-proxy.toml"
+command_user="_dnscrypt-proxy"
+command_background="yes"
+
+depend() {
+    need net
+    before nftables thl-dns-lock
+    use logger
+}
+
+start_pre() {
+    if [ ! -x "$command" ]; then
+        eerror "dnscrypt-proxy not installed (expected at $command)"
+        eerror "Check that hook 0005 ran successfully during build"
+        return 1
+    fi
+    install -d -m 750 /var/cache/dnscrypt-proxy
+    chown _dnscrypt-proxy:_dnscrypt-proxy /var/cache/dnscrypt-proxy 2>/dev/null || true
+    # Ensure the user exists (created by hook 0005; safety belt here)
+    if ! id _dnscrypt-proxy >/dev/null 2>&1; then
+        useradd -r -s /usr/sbin/nologin -d /var/cache/dnscrypt-proxy -M _dnscrypt-proxy
+    fi
+}
+
+stop() {
+    ebegin "Stopping dnscrypt-proxy"
+    start-stop-daemon --stop --quiet --pidfile "$pidfile" --exec "$command"
+    eend $?
+}
