@@ -131,15 +131,12 @@ libwebkit2gtk-4.1-0
 pavucontrol
 lxpolkit
 
-# Age encryption (bastille-notes, bastille-subsystem)
-age
-# argon2 CLI — PIN key derivation for subsystems
+# argon2 CLI — PIN key derivation for subsystems (package name is argon2 in bookworm)
 argon2
+# age encryption installed via hook from bookworm-backports (not in bookworm main)
 
-# Disk installer dependencies
+# Disk installer dependencies (arch-specific grub packages handled by CI workflow strip step)
 squashfs-tools
-grub-efi-amd64
-grub-efi-amd64-bin
 efibootmgr
 
 # Notification support
@@ -150,9 +147,9 @@ neofetch
 
 # cron (periodic RAM scrub)
 cron
-python3-vte2.91
+python3-vte2
 gstreamer1.0-plugins-good
 gstreamer1.0-plugins-bad
 python3-gst-1.0
 python3-mutagen
-gir1.2-gst-plugins-base-1.0
+gir1.2-gstreamer-1.0

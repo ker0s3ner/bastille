@@ -152,6 +152,52 @@ PYEOF
     rm -rf "$tmpdir"
 }
 
+# ── age encryption ───────────────────────────────────────────────────────────
+# age is not in bookworm main; try backports first, then GitHub releases.
+install_age() {
+    if command -v age >/dev/null 2>&1; then
+        echo "[age] already installed"
+        return 0
+    fi
+    echo "[age] trying bookworm-backports..."
+    if apt-get install -y -t bookworm-backports age 2>/dev/null; then
+        echo "[age] installed from backports"
+        return 0
+    fi
+    # Fallback: GitHub release tarball
+    local api_url="https://api.github.com/repos/FiloSottile/age/releases/latest"
+    local tmpdir; tmpdir=$(mktemp -d)
+    local release_json; release_json=$(curl -fsSL "$api_url")
+    local asset
+    case "$ARCH" in
+        amd64) asset="age-v.*-linux-amd64.tar.gz" ;;
+        arm64) asset="age-v.*-linux-arm64.tar.gz" ;;
+        *)     echo "[age] unsupported arch $ARCH, skipping"; rm -rf "$tmpdir"; return 0 ;;
+    esac
+    local tar_url
+    tar_url=$(echo "$release_json" | python3 -c "
+import sys, json, re
+data = json.load(sys.stdin)
+pat = sys.argv[1]
+for a in data.get('assets', []):
+    if re.match(pat, a['name']):
+        print(a['browser_download_url'])
+        break
+" "$asset") || tar_url=""
+    if [ -z "$tar_url" ]; then
+        echo "[age] could not find release asset, skipping"; rm -rf "$tmpdir"; return 0
+    fi
+    curl -fsSL -o "$tmpdir/age.tar.gz" "$tar_url"
+    tar -C "$tmpdir" -xzf "$tmpdir/age.tar.gz"
+    local bin; bin=$(find "$tmpdir" -name "age" -type f | head -1)
+    [ -n "$bin" ] && install -m 755 "$bin" /usr/local/bin/age
+    bin=$(find "$tmpdir" -name "age-keygen" -type f | head -1)
+    [ -n "$bin" ] && install -m 755 "$bin" /usr/local/bin/age-keygen
+    rm -rf "$tmpdir"
+    echo "[age] installed from GitHub"
+}
+
 install_fastfetch
 install_dnscrypt_proxy
 ensure_tuigreet
+install_age
