@@ -22,10 +22,9 @@ if dpkg -l systemd-sysv 2>/dev/null | grep -q '^ii'; then
     dpkg --force-depends --force-remove-essential --purge systemd-sysv
 fi
 
-# ── 3. Install sysvinit-core and openrc now that the conflict is gone ──────────
-# sysvinit-core: provides /sbin/init (PID 1)
-# openrc: service manager (manages all Bastille services)
-apt-get -y --no-install-recommends \
+# ── 3. Fix broken deps + install sysvinit-core and openrc ─────────────────────
+# --fix-broken resolves any packages left in broken state after the force-purge
+apt-get -y --fix-broken --no-install-recommends \
     -o Dpkg::Options::="--force-depends" \
     install sysvinit-core sysvinit-utils openrc
 
