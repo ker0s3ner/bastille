@@ -147,9 +147,10 @@ neofetch
 
 # cron (periodic RAM scrub)
 cron
-python3-vte2
+gir1.2-vte-2.91
 gstreamer1.0-plugins-good
 gstreamer1.0-plugins-bad
 python3-gst-1.0
 python3-mutagen
 gir1.2-gstreamer-1.0
+gir1.2-gst-plugins-base-1.0
