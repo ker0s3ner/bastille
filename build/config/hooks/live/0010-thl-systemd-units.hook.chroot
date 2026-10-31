@@ -16,27 +16,29 @@ chmod +x /etc/init.d/dnscrypt-proxy         || true
 chmod +x /etc/init.d/thl-tlsdate            || true
 chmod +x /etc/init.d/thl-tor               || true
 chmod +x /etc/init.d/wg-quick.wg0           || true
-chmod +x /usr/local/sbin/bastille-bfu-poweroff
+chmod +x /usr/local/sbin/bastille-bfu-poweroff || true
 
 # ── Enable services ───────────────────────────────────────────────────────────
-rc-update add thl-hostname        boot      # randomise hostname before networking
-rc-update add nftables            default
-rc-update add dnscrypt-proxy      default
-rc-update add thl-dns-lock        default
-rc-update add thl-bluetooth-block boot
-rc-update add thl-me-neutralize   boot
-rc-update add apparmor            boot
-rc-update add usbguard            default
-rc-update add NetworkManager      default
-rc-update add seatd               boot
-rc-update add dbus                default
-rc-update add greetd              default
-rc-update add thl-tlsdate         default
-rc-update add bastille-ramwipe    shutdown
-rc-update add thl-ram-scrub       shutdown
-rc-update add bastille-bfu-idle   default
-rc-update add bastille-update-check default
-rc-update add wg-quick.wg0        default || true   # only if wg0.conf exists at boot
+# All rc-update calls use || true: custom init scripts may not be present yet.
+# Standard Debian scripts (nftables, apparmor, etc.) are already registered.
+rc-update add thl-hostname        boot    || true
+rc-update add nftables            default || true
+rc-update add dnscrypt-proxy      default || true
+rc-update add thl-dns-lock        default || true
+rc-update add thl-bluetooth-block boot    || true
+rc-update add thl-me-neutralize   boot    || true
+rc-update add apparmor            boot    || true
+rc-update add usbguard            default || true
+rc-update add NetworkManager      default || true
+rc-update add seatd               boot    || true
+rc-update add dbus                default || true
+rc-update add greetd              default || true
+rc-update add thl-tlsdate         default || true
+rc-update add bastille-ramwipe    shutdown || true
+rc-update add thl-ram-scrub       shutdown || true
+rc-update add bastille-bfu-idle   default || true
+rc-update add bastille-update-check default || true
+rc-update add wg-quick.wg0        default || true
 
 # DSM watchdog: enabled only when /etc/thl/dsm.enabled exists (checked at runtime)
 rc-update add bastille-dsm-watchdog default || true
