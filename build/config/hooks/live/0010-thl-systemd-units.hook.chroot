@@ -11,32 +11,39 @@ chmod +x /etc/init.d/thl-bluetooth-block    || true
 chmod +x /etc/init.d/thl-me-neutralize      || true
 chmod +x /etc/init.d/thl-dns-lock           || true
 chmod +x /etc/init.d/thl-ram-scrub          || true
+chmod +x /etc/init.d/thl-hostname           || true
+chmod +x /etc/init.d/dnscrypt-proxy         || true
+chmod +x /etc/init.d/thl-tlsdate            || true
+chmod +x /etc/init.d/thl-tor               || true
 chmod +x /etc/init.d/wg-quick.wg0           || true
 chmod +x /usr/local/sbin/bastille-bfu-poweroff
 
 # ── Enable services ───────────────────────────────────────────────────────────
-rc-update add nftables           default
-rc-update add dnscrypt-proxy     default
-rc-update add thl-dns-lock       default
+rc-update add thl-hostname        boot      # randomise hostname before networking
+rc-update add nftables            default
+rc-update add dnscrypt-proxy      default
+rc-update add thl-dns-lock        default
 rc-update add thl-bluetooth-block boot
-rc-update add thl-me-neutralize  boot
-rc-update add apparmor           boot
-rc-update add usbguard           default
-rc-update add NetworkManager     default
-rc-update add elogind            boot
-rc-update add dbus               default
-rc-update add greetd             default
-rc-update add bastille-ramwipe   shutdown
-rc-update add thl-ram-scrub      shutdown
-rc-update add bastille-bfu-idle  default
+rc-update add thl-me-neutralize   boot
+rc-update add apparmor            boot
+rc-update add usbguard            default
+rc-update add NetworkManager      default
+rc-update add seatd               boot
+rc-update add dbus                default
+rc-update add greetd              default
+rc-update add thl-tlsdate         default
+rc-update add bastille-ramwipe    shutdown
+rc-update add thl-ram-scrub       shutdown
+rc-update add bastille-bfu-idle   default
 rc-update add bastille-update-check default
-rc-update add wg-quick.wg0       default || true   # only if wg0.conf exists at boot
+rc-update add wg-quick.wg0        default || true   # only if wg0.conf exists at boot
 
 # DSM watchdog: enabled only when /etc/thl/dsm.enabled exists (checked at runtime)
 rc-update add bastille-dsm-watchdog default || true
 
-# i2pd (optional)
-rc-update add i2pd default || true
+# Tor and i2pd: disabled by default; user enables via Settings > Network > Tor / i2p
+# rc-update add thl-tor default || true
+# rc-update add i2pd    default || true
 
 # ── Flatpak: add Flathub as user remote at first login ────────────────────────
 install -d -m 755 /etc/profile.d

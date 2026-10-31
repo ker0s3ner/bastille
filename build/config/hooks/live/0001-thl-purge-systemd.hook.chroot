@@ -36,9 +36,4 @@ apt-get -y --no-install-recommends \
     -o Dpkg::Options::="--force-remove-essential" \
     install sysvinit-core sysvinit-utils openrc
 
-# ── 5. Install libelogind0 to replace libsystemd0 ─────────────────────────────
-apt-get -y --no-install-recommends \
-    -o Dpkg::Options::="--force-depends" \
-    install libelogind0 2>/dev/null || true
-
 echo "[0001] systemd purge complete, sysvinit+openrc installed"

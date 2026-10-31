@@ -2,6 +2,9 @@
 # Hook: Set permissions on all Bastille apps and helpers
 set -euo pipefail
 
+# ── seatd: add user to seat group so Sway can get seat access ─────────────────
+usermod -aG seat user 2>/dev/null || true
+
 # ── User-facing apps (executable by user) ─────────────────────────────────────
 for bin in \
     /usr/local/bin/bastille-settings \

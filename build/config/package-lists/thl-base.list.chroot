@@ -11,10 +11,9 @@ ca-certificates
 curl
 wget
 
-# elogind — logind replacement for Sway/PolicyKit without systemd
-elogind
-libelogind0
-libpam-elogind
+# seatd — seat management for Sway, no logind/elogind dependency needed
+seatd
+libseat1
 
 # Sway Wayland compositor stack
 sway
