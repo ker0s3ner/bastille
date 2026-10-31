@@ -22,11 +22,13 @@ if dpkg -l systemd-sysv 2>/dev/null | grep -q '^ii'; then
     dpkg --force-depends --force-remove-essential --purge systemd-sysv
 fi
 
-# ── 3. Install sysvinit-core now that the conflict is resolved ─────────────────
-# -f fixes the 'init' package left broken after systemd-sysv removal,
-# while simultaneously installing sysvinit-core to satisfy it
-apt-get -y -f --no-install-recommends \
-    -o Dpkg::Options::="--force-depends" \
-    install sysvinit-core sysvinit-utils initscripts
+# ── 3. Fix broken 'init' metapackage, then install sysvinit-core ──────────────
+# After purging systemd-sysv, 'init' is left with an unmet dep.
+# apt-get -f install (no packages) resolves it automatically:
+# with systemd-sysv gone, the only candidate is sysvinit-core.
+apt-get -y -f --no-install-recommends install
+
+# Now install remaining sysvinit pieces cleanly
+apt-get -y --no-install-recommends install sysvinit-utils initscripts
 
 echo "[0001] sysvinit-core + openrc installed, systemd-sysv purged"
