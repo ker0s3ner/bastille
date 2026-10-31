@@ -1,5 +1,0 @@
-# Block systemd and all its components from being installed.
-# elogind + libelogind0 provide the logind/libsystemd0 interface without systemd.
-Package: systemd systemd-sysv systemd-timesyncd libsystemd0 systemd-resolved
-Pin: release *
-Pin-Priority: -1

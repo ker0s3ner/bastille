@@ -1,7 +1,5 @@
-# Base system — OpenRC (no systemd)
-# NOTE: 0001 hook purges systemd before these install
-openrc
-sysvinit-core
+# Base system
+# NOTE: sysvinit-core + openrc installed by 0001 hook AFTER systemd-sysv is purged
 dbus
 udev
 util-linux

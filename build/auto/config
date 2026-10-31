@@ -24,5 +24,5 @@ lb config noauto \
   --iso-publisher "Bastille Project" \
   --iso-volume "BASTILLE" \
   --bootappend-live "boot=live components quiet splash username=user persistence persistence-encryption=luks" \
-  --debootstrap-options "--exclude=systemd,systemd-sysv,libsystemd0,systemd-timesyncd --include=sysvinit-core,openrc,sysvinit-utils" \
+  --debootstrap-options "--exclude=systemd-sysv" \
   "${@}"

@@ -1,39 +1,35 @@
 #!/bin/sh
-# MUST run before ALL other hooks.
-# Purge systemd and install sysvinit-core + openrc so that every subsequent
-# package install sees the correct init system and does not re-pull systemd.
+# Runs AFTER all packages are installed.
+# Swaps systemd-sysv (the PID-1 symlink) for sysvinit-core + openrc.
+# We keep the base systemd package so libsystemd0 continues to satisfy
+# any package that links against it. Only the init symlink changes.
 set -e
 
 export DEBIAN_FRONTEND=noninteractive
 
-# ── 1. Pin systemd at -1 so apt never (re-)installs it ───────────────────────
-cat > /etc/apt/preferences.d/no-systemd << 'PIN'
-Package: systemd systemd-sysv systemd-timesyncd libsystemd0 systemd-resolved
-Pin: release *
-Pin-Priority: -1
-PIN
-
-# ── 2. Allow apt to force-remove essential packages and ignore dep errors ─────
+# ── 1. Write apt.conf so dpkg uses --force-depends during this hook ───────────
 mkdir -p /etc/apt/apt.conf.d
-cat > /etc/apt/apt.conf.d/99bastille-no-systemd << 'APT'
+cat > /etc/apt/apt.conf.d/99bastille-force << 'APT'
 APT::Get::allow-remove-essential "true";
 Dpkg::Options:: "--force-depends";
 Dpkg::Options:: "--force-remove-essential";
 APT
 
-# ── 3. Force-purge systemd packages via dpkg directly (bypasses apt resolver) ─
-# NOTE: do NOT use dpkg --set-selections hold — that causes "held broken
-# packages" errors when apt tries to remove them to satisfy elogind conflicts.
-for pkg in systemd-sysv systemd-timesyncd systemd libsystemd0 systemd-resolved; do
-    if dpkg -l "$pkg" 2>/dev/null | grep -q '^ii'; then
-        dpkg --force-depends --force-remove-essential --purge "$pkg" 2>/dev/null || true
-    fi
-done
+# ── 2. Force-purge systemd-sysv via dpkg (bypasses apt conflict resolver) ─────
+# systemd-sysv owns /sbin/init -> /lib/systemd/systemd
+# sysvinit-core conflicts with systemd-sysv (both provide /sbin/init)
+if dpkg -l systemd-sysv 2>/dev/null | grep -q '^ii'; then
+    dpkg --force-depends --force-remove-essential --purge systemd-sysv
+fi
 
-# ── 4. Install sysvinit + openrc now that systemd is gone ─────────────────────
+# ── 3. Install sysvinit-core and openrc now that the conflict is gone ──────────
+# sysvinit-core: provides /sbin/init (PID 1)
+# openrc: service manager (manages all Bastille services)
 apt-get -y --no-install-recommends \
     -o Dpkg::Options::="--force-depends" \
-    -o Dpkg::Options::="--force-remove-essential" \
     install sysvinit-core sysvinit-utils openrc
 
-echo "[0001] systemd purge complete, sysvinit+openrc installed"
+# ── 4. Remove the force-depends override so future apt runs are normal ─────────
+rm -f /etc/apt/apt.conf.d/99bastille-force
+
+echo "[0001] sysvinit-core + openrc installed, systemd-sysv purged"
