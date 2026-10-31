@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Music
+Comment=Local music player with GStreamer backend
+Exec=bastille-music
+Icon=multimedia-audio-player-symbolic
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Player;
+StartupNotify=true

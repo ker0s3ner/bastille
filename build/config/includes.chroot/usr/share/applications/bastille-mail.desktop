@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Mail
+Comment=Privacy-first email client with PGP and Guerrilla Mail
+Exec=bastille-mail
+Icon=mail-send-receive-symbolic
+Terminal=false
+Type=Application
+Categories=Network;Email;
+StartupNotify=true

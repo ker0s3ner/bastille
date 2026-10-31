@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Sheets
+Comment=Spreadsheet editor (LibreOffice Calc)
+Exec=bastille-sheets
+Icon=x-office-spreadsheet-symbolic
+Terminal=false
+Type=Application
+Categories=Office;Spreadsheet;
+StartupNotify=true

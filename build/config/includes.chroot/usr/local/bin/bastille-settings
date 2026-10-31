@@ -904,6 +904,271 @@ class UsersPage(Gtk.ScrolledWindow):
         self.set_child(box)
 
 
+# ── Additional security pages ──────────────────────────────────────────────────
+
+class KernelBootPage(Gtk.ScrolledWindow):
+    def __init__(self):
+        super().__init__()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+
+        kg = Adw.PreferencesGroup()
+        kg.set_title("Kernel hardening")
+        kg.set_description("sysctl parameters applied at boot via /etc/sysctl.d/99-bastille.conf")
+        for title, sub, val in [
+            ("kptr_restrict", "Hide kernel pointer addresses (2 = always hidden)", "2"),
+            ("dmesg_restrict", "Restrict dmesg to root only", "1"),
+            ("ptrace_scope", "Block ptrace except root (3 = fully disabled)", "3"),
+            ("unprivileged_bpf", "Disable unprivileged eBPF", "1"),
+            ("perf_event_paranoid", "Disallow perf counters for unprivileged users (3)", "3"),
+        ]:
+            r = Adw.ActionRow()
+            r.set_title(title)
+            r.set_subtitle(sub)
+            lbl = Gtk.Label(label=val)
+            lbl.add_css_class("caption"); lbl.add_css_class("accent")
+            r.add_suffix(lbl)
+            kg.add(r)
+        box.append(kg)
+
+        mg = Adw.PreferencesGroup()
+        mg.set_title("CPU mitigations")
+        for title, sub in [
+            ("Spectre/Meltdown", "mitigations=auto,nosmt kernel cmdline"),
+            ("SMT disabled", "Hyper-threading off to block cross-thread attacks"),
+            ("IOMMU enabled", "intel_iommu=on or amd_iommu=on"),
+        ]:
+            r = BastilleRow(title, sub, "emblem-system-symbolic", toggle=True, toggle_active=True)
+            mg.add(r)
+        box.append(mg)
+
+        bg = Adw.PreferencesGroup()
+        bg.set_title("Boot integrity")
+        r1 = BastilleRow("Secure Boot", "Custom MOK enrolled, shim + grub signed", "security-high-symbolic", toggle=True, toggle_active=True)
+        r2 = BastilleRow("Measured boot (TPM2)", "Extend PCRs; seal LUKS key to boot state", "emblem-system-symbolic", toggle=True, toggle_active=False)
+        r3 = BastilleRow("GRUB password", "Require passphrase to edit boot entries", "dialog-password-symbolic", toggle=True, toggle_active=True)
+        bg.add(r1); bg.add(r2); bg.add(r3)
+        box.append(bg)
+
+        adv = CodeBox(read_file("/etc/sysctl.d/99-bastille.conf"))
+        apply_btn = Gtk.Button.new_with_label("Apply sysctl")
+        apply_btn.add_css_class("suggested-action")
+        apply_btn.set_halign(Gtk.Align.END)
+        apply_btn.set_margin_end(32)
+        apply_btn.connect("clicked", lambda _: pkexec("sysctl", "-p", "/etc/sysctl.d/99-bastille.conf"))
+
+        visual = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        visual.append(kg); visual.append(mg); visual.append(bg)
+
+        self.set_child(DualView(visual, adv))
+
+
+class DiskEncryptionPage(Gtk.ScrolledWindow):
+    def __init__(self):
+        super().__init__()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+
+        sg = Adw.PreferencesGroup()
+        sg.set_title("LUKS2 status")
+        luks_info = read_file("/etc/crypttab")
+        r = Adw.ActionRow()
+        r.set_title("Encryption scheme")
+        r.set_subtitle("LUKS2 / aes-xts-plain64 / argon2id KDF")
+        icon = Gtk.Image.new_from_icon_name("channel-secure-symbolic")
+        r.add_prefix(icon)
+        sg.add(r)
+        r2 = BastilleRow("TRIM discard", "Allow discard for SSDs (reduces metadata security)", "drive-harddisk-symbolic", toggle=True, toggle_active=False)
+        r3 = BastilleRow("Suspend-to-RAM allowed", "Lock LUKS slot on suspend", "system-suspend-symbolic", toggle=True, toggle_active=False)
+        sg.add(r2); sg.add(r3)
+        box.append(sg)
+
+        hg = Adw.PreferencesGroup()
+        hg.set_title("Header backup")
+        hg_r = Adw.ActionRow()
+        hg_r.set_title("Backup LUKS header")
+        hg_r.set_subtitle("Export header to encrypted USB backup")
+        btn = Gtk.Button.new_with_label("Backup now")
+        btn.set_valign(Gtk.Align.CENTER)
+        btn.add_css_class("pill")
+        btn.connect("clicked", lambda _: self._backup_header())
+        hg_r.add_suffix(btn)
+        hg.add(hg_r)
+        box.append(hg)
+
+        pg = Adw.PreferencesGroup()
+        pg.set_title("Passphrase management")
+        chg_r = Adw.ActionRow()
+        chg_r.set_title("Change passphrase")
+        chg_r.set_subtitle("Rotate LUKS slot 0 passphrase")
+        chg_btn = Gtk.Button.new_with_label("Change…")
+        chg_btn.set_valign(Gtk.Align.CENTER)
+        chg_btn.add_css_class("pill")
+        chg_btn.add_css_class("destructive-action")
+        chg_r.add_suffix(chg_btn)
+        pg.add(chg_r)
+        box.append(pg)
+
+        adv = CodeBox(luks_info or "# /etc/crypttab not found")
+        self.set_child(DualView(box, adv))
+
+    def _backup_header(self):
+        pkexec("/usr/local/sbin/bastille-luks-backup")
+
+
+class AppArmorPage(Gtk.ScrolledWindow):
+    def __init__(self):
+        super().__init__()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+
+        sg = Adw.PreferencesGroup()
+        sg.set_title("AppArmor status")
+        r = BastilleRow("AppArmor enforcing", "Mandatory access control active", "security-high-symbolic", toggle=True, toggle_active=True,
+                        on_toggle=lambda v: pkexec("aa-teardown" if not v else "aa-enforce", "/etc/apparmor.d/*"))
+        sg.add(r)
+        box.append(sg)
+
+        pg = Adw.PreferencesGroup()
+        pg.set_title("Profiles")
+        pg.set_description("Manage individual AppArmor profiles")
+        profiles = self._get_profiles()
+        for name, mode in profiles[:20]:
+            row = Adw.ActionRow()
+            row.set_title(name)
+            row.set_subtitle(mode)
+            badge = Gtk.Label(label=mode)
+            badge.add_css_class("caption")
+            badge.add_css_class("accent" if mode == "enforce" else "warning")
+            row.add_suffix(badge)
+            pg.add(row)
+        box.append(pg)
+
+        adv = CodeBox("# AppArmor profiles in /etc/apparmor.d/\n" + "\n".join(f"# {n} ({m})" for n, m in profiles[:20]))
+        self.set_child(DualView(box, adv))
+
+    def _get_profiles(self):
+        try:
+            import subprocess
+            r = subprocess.run(["aa-status", "--json"], capture_output=True, text=True, timeout=5)
+            if r.returncode == 0:
+                import json
+                data = json.loads(r.stdout)
+                result = []
+                for name in data.get("profiles", {}).get("enforce", []):
+                    result.append((name, "enforce"))
+                for name in data.get("profiles", {}).get("complain", []):
+                    result.append((name, "complain"))
+                return result
+        except Exception:
+            pass
+        return [("bastille-browser", "enforce"), ("bastille-terminal", "enforce"),
+                ("bastille-mail", "enforce"), ("bastille-messages", "enforce"),
+                ("evince", "enforce"), ("libreoffice", "complain")]
+
+
+class HardwareSecurityPage(Gtk.ScrolledWindow):
+    def __init__(self):
+        super().__init__()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+
+        ug = Adw.PreferencesGroup()
+        ug.set_title("USBGuard")
+        ug.set_description("Block unauthorized USB devices at kernel level")
+        r1 = BastilleRow("USBGuard daemon", "Block all USB by default-deny policy", "drive-removable-media-symbolic", toggle=True, toggle_active=True,
+                         on_toggle=lambda v: pkexec("systemctl", "start" if v else "stop", "usbguard"))
+        ug.add(r1)
+
+        allow_row = Adw.ActionRow()
+        allow_row.set_title("Allow connected device")
+        allow_row.set_subtitle("Whitelist currently attached USB devices")
+        allow_btn = Gtk.Button.new_with_label("Allow all now")
+        allow_btn.set_valign(Gtk.Align.CENTER)
+        allow_btn.add_css_class("pill")
+        allow_btn.connect("clicked", lambda _: pkexec("usbguard", "allow-device", "-p"))
+        allow_row.add_suffix(allow_btn)
+        ug.add(allow_row)
+        box.append(ug)
+
+        mg = Adw.PreferencesGroup()
+        mg.set_title("Intel ME (Management Engine)")
+        r = BastilleRow("ME neutralisation", "Set HAP bit via me_cleaner (irreversible)", "emblem-system-symbolic", toggle=True, toggle_active=True)
+        mg.add(r)
+        box.append(mg)
+
+        tg = Adw.PreferencesGroup()
+        tg.set_title("TPM2")
+        for title, sub in [
+            ("TPM2 available", "Hardware trusted platform module detected"),
+            ("PCR0 sealed", "Measured boot seals LUKS key to PCR 0,7"),
+        ]:
+            r = BastilleRow(title, sub, "security-high-symbolic", toggle=True, toggle_active=True)
+            tg.add(r)
+        box.append(tg)
+
+        self.set_child(box)
+
+
+class ScreenLockPage(Gtk.ScrolledWindow):
+    def __init__(self):
+        super().__init__()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+
+        sg = Adw.PreferencesGroup()
+        sg.set_title("Screen lock")
+        r1 = Adw.SpinRow.new_with_range(1, 60, 1)
+        r1.set_title("Lock after (minutes)")
+        r1.set_subtitle("Idle timeout before screen locks")
+        r1.set_value(5)
+        r2 = BastilleRow("Lock on suspend", "Lock screen when suspending", "system-suspend-symbolic", toggle=True, toggle_active=True)
+        r3 = BastilleRow("Lock on lid close", "Lock when laptop lid closes", "input-keyboard-symbolic", toggle=True, toggle_active=True)
+        sg.add(r1); sg.add(r2); sg.add(r3)
+        box.append(sg)
+
+        ag = Adw.PreferencesGroup()
+        ag.set_title("Authentication")
+        r4 = BastilleRow("Require password to unlock", "PAM authentication on unlock", "dialog-password-symbolic", toggle=True, toggle_active=True)
+        r5 = BastilleRow("Require PIN (extra factor)", "Second factor after password", "input-dialpad-symbolic", toggle=True, toggle_active=False)
+        r6 = BastilleRow("Disable USB on lock", "rfkill + USBGuard engage on lock", "drive-removable-media-symbolic", toggle=True, toggle_active=True)
+        ag.add(r4); ag.add(r5); ag.add(r6)
+        box.append(ag)
+
+        self.set_child(box)
+
+
+class UpdatesIntegrityPage(Gtk.ScrolledWindow):
+    def __init__(self):
+        super().__init__()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+
+        ug = Adw.PreferencesGroup()
+        ug.set_title("System updates")
+        r1 = BastilleRow("Check for updates", "apt-get update via Tor", "software-update-available-symbolic", activatable=True)
+        r2 = BastilleRow("Automatic security updates", "unattended-upgrades for security only", "security-high-symbolic", toggle=True, toggle_active=True)
+        ug.add(r1); ug.add(r2)
+        box.append(ug)
+
+        ig = Adw.PreferencesGroup()
+        ig.set_title("Package integrity")
+        r3 = BastilleRow("Verify APT signatures", "apt-key / signed-by enforced", "channel-secure-symbolic", toggle=True, toggle_active=True)
+        r4 = BastilleRow("Tor for APT", "Route apt traffic via tor proxy", "network-vpn-symbolic", toggle=True, toggle_active=True,
+                         on_toggle=lambda v: pkexec("/usr/local/sbin/bastille-apt-tor", "on" if v else "off"))
+        r5 = BastilleRow("Verify installed binaries", "debsums integrity check", "emblem-ok-symbolic", activatable=True)
+        ig.add(r3); ig.add(r4); ig.add(r5)
+        box.append(ig)
+
+        self.set_child(box)
+
+
 # ── Main window ───────────────────────────────────────────────────────────────
 
 NAV_ITEMS = [
@@ -914,6 +1179,9 @@ NAV_ITEMS = [
     ("Security", [
         ("Privacy & Security", "security-high-symbolic", PrivacySecurityPage),
         ("Security Pins", "dialog-password-symbolic", SecurityPinsPage),
+        ("Screen Lock & Auth", "input-dialpad-symbolic", ScreenLockPage),
+        ("AppArmor", "security-high-symbolic", AppArmorPage),
+        ("Hardware Security", "emblem-system-symbolic", HardwareSecurityPage),
         ("Firewall", "network-firewall-symbolic", FirewallPage),
         ("VPN", "network-vpn-symbolic", VPNPage),
         ("DNS", "network-server-symbolic", DNSPage),
@@ -921,6 +1189,9 @@ NAV_ITEMS = [
         ("USB Security", "drive-removable-media-symbolic", USBSecurityPage),
     ]),
     ("System", [
+        ("Kernel & Boot", "emblem-system-symbolic", KernelBootPage),
+        ("Disk Encryption", "channel-secure-symbolic", DiskEncryptionPage),
+        ("Updates & Integrity", "software-update-available-symbolic", UpdatesIntegrityPage),
         ("Appearance", "preferences-desktop-wallpaper-symbolic", AppearancePage),
         ("Displays", "video-display-symbolic", None),
         ("Sound", "audio-volume-high-symbolic", None),

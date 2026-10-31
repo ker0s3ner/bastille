@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Documents
+Comment=Word processor (LibreOffice Writer)
+Exec=bastille-documents
+Icon=x-office-document-symbolic
+Terminal=false
+Type=Application
+Categories=Office;WordProcessor;
+StartupNotify=true

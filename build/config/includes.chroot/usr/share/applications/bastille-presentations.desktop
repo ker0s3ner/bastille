@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Presentations
+Comment=Presentation editor (LibreOffice Impress)
+Exec=bastille-presentations
+Icon=x-office-presentation-symbolic
+Terminal=false
+Type=Application
+Categories=Office;Presentation;
+StartupNotify=true

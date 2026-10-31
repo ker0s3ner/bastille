@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Files
+Comment=File manager with age/GPG encryption support
+Exec=bastille-files
+Icon=system-file-manager-symbolic
+Terminal=false
+Type=Application
+Categories=System;FileManager;
+StartupNotify=true

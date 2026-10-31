@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Browser
+Comment=Tor-integrated privacy browser
+Exec=bastille-browser
+Icon=web-browser-symbolic
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+StartupNotify=true

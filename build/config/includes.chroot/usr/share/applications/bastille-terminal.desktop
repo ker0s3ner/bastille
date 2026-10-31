@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Terminal
+Comment=Bastille terminal emulator
+Exec=bastille-terminal
+Icon=utilities-terminal-symbolic
+Terminal=false
+Type=Application
+Categories=System;TerminalEmulator;
+StartupNotify=true

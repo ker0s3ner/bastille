@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Messages
+Comment=Encrypted messaging hub (Signal, Session, GPG)
+Exec=bastille-messages
+Icon=mail-message-new-symbolic
+Terminal=false
+Type=Application
+Categories=Network;InstantMessaging;
+StartupNotify=true
