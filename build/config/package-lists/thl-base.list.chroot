@@ -1,4 +1,5 @@
 # Base system — OpenRC (no systemd)
+# NOTE: 0001 hook purges systemd before these install
 openrc
 sysvinit-core
 dbus
@@ -21,20 +22,19 @@ swayidle
 swaylock
 foot
 waybar
-wofi
-mako-notifier
 grim
 slurp
 wl-clipboard
 xdg-desktop-portal-wlr
 kanshi
 brightnessctl
+mako-notifier
 
-# Greeter (greetd daemon + tuigreet from bookworm-backports)
+# Greeter
 greetd
-tuigreet
+greetd-gtkgreet
 
-# GPU drivers — Wayland/DRM (no X11 server drivers needed); firmware still required
+# GPU drivers
 firmware-amd-graphics
 firmware-misc-nonfree
 mesa-vulkan-drivers
@@ -43,28 +43,25 @@ libgl1-mesa-dri
 # Network & VPN
 wireguard-tools
 network-manager
+network-manager-gnome
 iproute2
 nftables
 
-# DNS — dnscrypt-proxy not in Debian 12; installed via hook 0005 from GitHub releases
-
 # PGP
 gnupg2
-gnupg-agent
+gpg-agent
 pinentry-curses
-gpgconf
 
-# Build tools (needed by hooks to compile C binaries — must be pre-installed, DNS unavailable in hooks)
+# Build tools (hooks compile C helpers)
 gcc
 make
 libpam0g-dev
 libsodium-dev
 libkeyutils-dev
 libncurses-dev
-libpthread-stubs0-dev
 dpkg-dev
 
-# Hook 0070 — USBGuard
+# USBGuard
 usbguard
 
 # Security
@@ -82,14 +79,13 @@ lvm2
 e2fsprogs
 dosfstools
 
-# Browser (DoH handled by dnscrypt-proxy; browser DNS locked via policies.json)
+# Browser
 firefox-esr
 
-# Onion routing (opt-in — disabled by default; tor: SOCKS proxy; i2pd: I2P network)
+# Onion routing (disabled by default)
 tor
-i2pd
 
-# User app installs (no sudo required — user-level Flatpak installs only)
+# Flatpak
 flatpak
 xdg-desktop-portal
 
@@ -102,25 +98,19 @@ less
 file
 htop
 lsof
-fwupd
-nvme-cli
-hdparm
+rfkill
+python3
 python3-gi
 python3-gi-cairo
 python3-argon2
 libsodium23
 
-# Privacy & anti-forensics tools
+# Privacy & anti-forensics
 secure-delete
 mat2
-rfkill
-# NTP privacy — tlsdate replaces default NTP with HTTPS-based time
-# Prevents IP leakage to time servers
-tlsdate
 
-# Update infrastructure (polkit is policykit-1 in Debian 12; dnscrypt-proxy via hook)
+# Update / polkit
 policykit-1
-python3
 parted
 jq
 
@@ -129,27 +119,23 @@ fonts-dejavu-core
 fonts-liberation
 adwaita-icon-theme
 fonts-noto-core
-fonts-inter
 
-# GTK4/libadwaita (for settings app, wizard, and custom apps)
+# GTK4/libadwaita (settings app, wizard, native apps)
 gir1.2-adw-1
 gir1.2-gtk-4.0
 libadwaita-1-0
 gir1.2-soup-3.0
 libsoup-3.0-0
 
-# WebKitGTK (for bastille-maps)
-gir1.2-webkit-6.0
+# WebKitGTK (bastille-maps)
+gir1.2-webkit2-4.1
 libwebkit2gtk-4.1-0
 
-# Wayland / UI extras
-alacritty
-mako-notifier
-polkit-gnome
-nm-tray
+# UI extras
 pavucontrol
+polkit-gnome
 
-# Age encryption (for bastille-notes)
+# Age encryption (bastille-notes)
 age
 
 # Disk installer dependencies
@@ -157,18 +143,12 @@ squashfs-tools
 grub-efi-amd64
 grub-efi-amd64-bin
 efibootmgr
-parted
-unsquashfs
-
-# IBM Plex fonts
-fonts-ibm-plex
 
 # Notification support
 libnotify-bin
-libnotify4
 
-# swaylock extras (clock on lock screen)
-swaylock
+# neofetch / fastfetch (fastfetch via 0005 hook from GitHub)
+neofetch
 
-# greetd gtkgreet
-greetd-gtkgreet
+# cron (periodic RAM scrub)
+cron
