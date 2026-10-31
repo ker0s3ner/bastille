@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Maps
+Comment=OpenStreetMap (no account required)
+Exec=bastille-maps
+Icon=find-location-symbolic
+Categories=Utility;

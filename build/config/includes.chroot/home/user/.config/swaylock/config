@@ -1,0 +1,35 @@
+# Bastille OS — swaylock config
+color=0b0c10ff
+inside-color=161b22ff
+ring-color=1c4a8aff
+ring-ver-color=4f8fd4ff
+ring-wrong-color=f85149ff
+key-hl-color=4f8fd4ff
+bs-hl-color=f85149ff
+text-color=c9d1d9ff
+text-ver-color=c9d1d9ff
+text-wrong-color=f85149ff
+text-clear-color=c9d1d9ff
+line-color=1f3a5fff
+separator-color=00000000
+inside-ver-color=1c4a8aff
+inside-wrong-color=3a1a1aff
+inside-clear-color=161b22ff
+
+font=IBM Plex Mono
+font-size=16
+
+indicator-radius=80
+indicator-thickness=8
+indicator-idle-visible
+
+show-keyboard-layout
+show-failed-attempts
+
+# Show clock on lock screen
+clock
+timestr=%H:%M
+datestr=%A, %d %B %Y
+
+image=/etc/bastille/wallpaper.png
+scaling=fill

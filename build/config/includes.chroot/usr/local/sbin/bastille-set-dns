@@ -1,0 +1,19 @@
+#!/bin/sh
+# bastille-set-dns — polkit-gated dnscrypt-proxy config writer
+set -e
+die() { echo "bastille-set-dns: $*" >&2; exit 1; }
+
+[ "$(id -u)" = "0" ] || die "must run as root (pkexec)"
+[ -n "$1" ] || die "usage: bastille-set-dns <toml-file> [blocklist-file]"
+[ -f "$1" ] || die "toml file not found: $1"
+
+cp "$1" /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+chmod 640 /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+
+if [ -n "$2" ] && [ -f "$2" ]; then
+    cp "$2" /etc/dnscrypt-proxy/blocked-names.txt
+    chmod 644 /etc/dnscrypt-proxy/blocked-names.txt
+fi
+
+rc-service dnscrypt-proxy restart || true
+echo "OK: DNS config applied"

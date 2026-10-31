@@ -1,0 +1,80 @@
+{
+    "layer": "top",
+    "position": "top",
+    "height": 36,
+    "spacing": 4,
+    "modules-left": ["sway/workspaces", "sway/mode"],
+    "modules-center": ["clock"],
+    "modules-right": [
+        "custom/vpn-status",
+        "network",
+        "pulseaudio",
+        "battery",
+        "tray",
+        "custom/lock",
+        "custom/power"
+    ],
+
+    "sway/workspaces": {
+        "disable-scroll": true,
+        "all-outputs": true,
+        "format": "{name}"
+    },
+
+    "clock": {
+        "format": "{:%H:%M}",
+        "format-alt": "{:%A, %d %B %Y  %H:%M:%S}",
+        "tooltip-format": "<tt>{calendar}</tt>",
+        "calendar": {
+            "mode": "month",
+            "on-scroll": 1
+        }
+    },
+
+    "network": {
+        "format-wifi": "  {essid}",
+        "format-ethernet": "  {ifname}",
+        "format-disconnected": "  Offline",
+        "tooltip-format": "{ifname}: {ipaddr}/{cidr}\nUp: {bandwidthUpBits}  Down: {bandwidthDownBits}"
+    },
+
+    "custom/vpn-status": {
+        "exec": "if wg show wg0 >/dev/null 2>&1; then echo '{\"text\":\"  VPN\",\"class\":\"connected\",\"tooltip\":\"WireGuard active\"}'; else echo '{\"text\":\"  No VPN\",\"class\":\"disconnected\",\"tooltip\":\"WireGuard down\"}'; fi",
+        "return-type": "json",
+        "interval": 10,
+        "format": "{}",
+        "on-click": "bastille-settings"
+    },
+
+    "pulseaudio": {
+        "format": "{icon}  {volume}%",
+        "format-muted": " ",
+        "format-icons": {
+            "default": ["", "", ""]
+        },
+        "on-click": "pavucontrol"
+    },
+
+    "battery": {
+        "states": {"warning": 30, "critical": 15},
+        "format": "{icon}  {capacity}%",
+        "format-charging": "  {capacity}%",
+        "format-icons": ["", "", "", "", ""]
+    },
+
+    "tray": {
+        "spacing": 8
+    },
+
+    "custom/lock": {
+        "format": "",
+        "tooltip": "Lock screen",
+        "on-click": "swaylock"
+    },
+
+    "custom/power": {
+        "format": "",
+        "tooltip": "Power menu",
+        "on-click": "bastille-powermenu"
+    }
+}

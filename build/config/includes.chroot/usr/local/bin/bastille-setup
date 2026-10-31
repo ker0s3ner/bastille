@@ -1,0 +1,629 @@
+#!/usr/bin/env python3
+"""bastille-setup — Bastille OS first-boot configuration wizard."""
+
+import gi
+gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
+
+import os
+import sys
+import subprocess
+import json
+from gi.repository import Gtk, Adw, Gio, GLib
+
+APP_ID = "org.bastilleos.Setup"
+DONE_FLAG = "/etc/bastille/setup.done"
+
+
+def pkexec(cmd, *args):
+    full = ["pkexec", cmd] + list(args)
+    try:
+        r = subprocess.run(full, capture_output=True, text=True, timeout=60)
+        return r.returncode, r.stdout.strip(), r.stderr.strip()
+    except Exception as e:
+        return 1, "", str(e)
+
+
+def is_live():
+    """True if running from live media (not installed to disk)."""
+    return os.path.exists("/run/live/medium")
+
+
+# ── Wizard pages ──────────────────────────────────────────────────────────────
+
+class WelcomePage(Adw.NavigationPage):
+    def __init__(self):
+        super().__init__(title="Welcome")
+        sp = Adw.StatusPage()
+        sp.set_icon_name("security-high-symbolic")
+        sp.set_title("Welcome to Bastille OS")
+        sp.set_description(
+            "This wizard will configure your secure environment.\n"
+            "It takes about 5 minutes. You can change any setting later in Settings."
+        )
+        sp.set_vexpand(True)
+        self.set_child(sp)
+
+
+class StorageModePage(Adw.NavigationPage):
+    def __init__(self):
+        super().__init__(title="Storage")
+        self.mode = "live"  # or "disk"
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+        box.set_valign(Gtk.Align.CENTER)
+
+        title = Gtk.Label.new("How will you run Bastille?")
+        title.add_css_class("title-2")
+        title.set_margin_bottom(8)
+        box.append(title)
+
+        # Live USB card
+        live_card = Gtk.Button()
+        live_card.add_css_class("card")
+        live_inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        live_inner.set_margin_start(20); live_inner.set_margin_end(20)
+        live_inner.set_margin_top(16); live_inner.set_margin_bottom(16)
+        live_icon = Gtk.Image.new_from_icon_name("drive-removable-media-symbolic")
+        live_icon.set_pixel_size(48)
+        live_inner.append(live_icon)
+        live_inner.append(Gtk.Label.new("Live USB (like Tails)"))
+        live_sub = Gtk.Label.new("Runs entirely in RAM. Optional encrypted persistence partition. "
+                                  "Nothing written to the host disk.")
+        live_sub.add_css_class("dim-label")
+        live_sub.add_css_class("caption")
+        live_sub.set_wrap(True)
+        live_sub.set_halign(Gtk.Align.CENTER)
+        live_inner.append(live_sub)
+        live_card.set_child(live_inner)
+        live_card.connect("clicked", lambda _: self._select("live", live_card, disk_card))
+        box.append(live_card)
+
+        # Install to disk card
+        disk_card = Gtk.Button()
+        disk_card.add_css_class("card")
+        disk_inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        disk_inner.set_margin_start(20); disk_inner.set_margin_end(20)
+        disk_inner.set_margin_top(16); disk_inner.set_margin_bottom(16)
+        disk_icon = Gtk.Image.new_from_icon_name("drive-harddisk-symbolic")
+        disk_icon.set_pixel_size(48)
+        disk_inner.append(disk_icon)
+        disk_inner.append(Gtk.Label.new("Install to Disk"))
+        disk_sub = Gtk.Label.new("Full LUKS2-encrypted installation. Persistent across reboots. "
+                                  "Requires a dedicated disk or partition.")
+        disk_sub.add_css_class("dim-label")
+        disk_sub.add_css_class("caption")
+        disk_sub.set_wrap(True)
+        disk_sub.set_halign(Gtk.Align.CENTER)
+        disk_inner.append(disk_sub)
+        disk_card.set_child(disk_inner)
+        disk_card.connect("clicked", lambda _: self._select("disk", disk_card, live_card))
+        box.append(disk_card)
+
+        # Default selection
+        live_card.add_css_class("suggested-action")
+        self._live_card = live_card
+        self._disk_card = disk_card
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_child(box)
+        self.set_child(scroll)
+
+    def _select(self, mode, active, inactive):
+        self.mode = mode
+        active.add_css_class("suggested-action")
+        inactive.remove_css_class("suggested-action")
+
+
+class PersistencePage(Adw.NavigationPage):
+    def __init__(self):
+        super().__init__(title="Persistence")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+
+        title = Gtk.Label.new("Encrypted Persistence")
+        title.add_css_class("title-2")
+        box.append(title)
+
+        desc = Gtk.Label.new(
+            "Create an encrypted LUKS2 partition on your USB drive for persistent storage.\n"
+            "Your files and settings survive reboots but remain protected at rest."
+        )
+        desc.set_wrap(True)
+        desc.add_css_class("dim-label")
+        box.append(desc)
+
+        pg = Adw.PreferencesGroup()
+        pg.set_title("Configuration")
+
+        self._dev_row = Adw.ActionRow()
+        self._dev_row.set_title("Target partition")
+        self._dev_row.set_subtitle("e.g. /dev/sdb2 — must be empty")
+        dev_entry = Gtk.Entry()
+        dev_entry.set_placeholder_text("/dev/sdb2")
+        dev_entry.set_valign(Gtk.Align.CENTER)
+        self._dev_entry = dev_entry
+        self._dev_row.add_suffix(dev_entry)
+        pg.add(self._dev_row)
+
+        size_row = Adw.SpinRow.new_with_range(512, 32768, 512)
+        size_row.set_title("Persistence size (MB)")
+        size_row.set_value(4096)
+        self._size_row = size_row
+        pg.add(size_row)
+
+        skip_row = BastilleToggle("Skip for now", "Set up persistence later", active=True)
+        self._skip = skip_row
+        pg.add(skip_row)
+
+        box.append(pg)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_child(box)
+        self.set_child(scroll)
+
+
+class BastilleToggle(Adw.ActionRow):
+    def __init__(self, title, subtitle=None, active=False):
+        super().__init__()
+        self.set_title(title)
+        if subtitle:
+            self.set_subtitle(subtitle)
+        self._sw = Gtk.Switch()
+        self._sw.set_active(active)
+        self._sw.set_valign(Gtk.Align.CENTER)
+        self.add_suffix(self._sw)
+
+    def get_active(self):
+        return self._sw.get_active()
+
+
+class UserPage(Adw.NavigationPage):
+    def __init__(self):
+        super().__init__(title="User Account")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+
+        title = Gtk.Label.new("User Account")
+        title.add_css_class("title-2")
+        box.append(title)
+
+        pg = Adw.PreferencesGroup()
+        pg.set_description("The default user 'user' will be configured. No sudo is ever granted.")
+
+        pass_row = Adw.PasswordEntryRow()
+        pass_row.set_title("Login password")
+        self._pass = pass_row
+        pg.add(pass_row)
+
+        confirm_row = Adw.PasswordEntryRow()
+        confirm_row.set_title("Confirm password")
+        self._confirm = confirm_row
+        pg.add(confirm_row)
+
+        box.append(pg)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_child(box)
+        self.set_child(scroll)
+
+    def get_password(self):
+        return self._pass.get_text()
+
+    def passwords_match(self):
+        return self._pass.get_text() == self._confirm.get_text()
+
+
+class PinsPage(Adw.NavigationPage):
+    def __init__(self):
+        super().__init__(title="Security PINs")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+
+        title = Gtk.Label.new("Security PINs")
+        title.add_css_class("title-2")
+        box.append(title)
+
+        banner = Adw.Banner()
+        banner.set_title("All PINs are optional — you can set them later in Settings → Security Pins")
+        banner.set_revealed(True)
+        box.append(banner)
+
+        pg = Adw.PreferencesGroup()
+        pg.set_title("Optional PINs")
+
+        for label, desc, attr in [
+            ("Duress PIN", "Triggers RAM wipe + immediate poweroff", "_duress"),
+            ("Fake Duress PIN", "Decoy wipe — boots to sanitised session", "_fake_duress"),
+            ("DSM Check-in PIN", "Dead switch mode check-in code", "_dsm"),
+        ]:
+            row = Adw.PasswordEntryRow()
+            row.set_title(label)
+            sub = Gtk.Label.new(desc)
+            sub.add_css_class("caption")
+            sub.add_css_class("dim-label")
+            pg.add(row)
+            setattr(self, attr, row)
+
+        box.append(pg)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_child(box)
+        self.set_child(scroll)
+
+
+class ProfilePage(Adw.NavigationPage):
+    def __init__(self):
+        super().__init__(title="Security Profile")
+        self.profile = "high"
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+        box.set_valign(Gtk.Align.CENTER)
+
+        title = Gtk.Label.new("Security Profile")
+        title.add_css_class("title-2")
+        box.append(title)
+
+        profiles = [
+            ("Standard", "standard", "Basic hardening. Suitable for everyday use with privacy."),
+            ("High Security", "high", "All protections active. Recommended for sensitive work."),
+            ("Anonymity", "anon", "Adds Tor routing, MAC randomisation, metadata stripping."),
+        ]
+
+        self._cards = {}
+        for name, key, desc in profiles:
+            card = Gtk.Button()
+            card.add_css_class("card")
+            inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            inner.set_margin_start(16); inner.set_margin_end(16)
+            inner.set_margin_top(12); inner.set_margin_bottom(12)
+            lbl = Gtk.Label.new(name)
+            lbl.add_css_class("heading")
+            lbl.set_halign(Gtk.Align.START)
+            dlbl = Gtk.Label.new(desc)
+            dlbl.add_css_class("caption")
+            dlbl.add_css_class("dim-label")
+            dlbl.set_halign(Gtk.Align.START)
+            dlbl.set_wrap(True)
+            inner.append(lbl)
+            inner.append(dlbl)
+            card.set_child(inner)
+            card.connect("clicked", lambda _, k=key: self._select(k))
+            self._cards[key] = card
+            box.append(card)
+
+        self._cards["high"].add_css_class("suggested-action")
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_child(box)
+        self.set_child(scroll)
+
+    def _select(self, key):
+        for k, c in self._cards.items():
+            c.remove_css_class("suggested-action")
+        self._cards[key].add_css_class("suggested-action")
+        self.profile = key
+
+
+class AppsPage(Adw.NavigationPage):
+    def __init__(self):
+        super().__init__(title="Applications")
+        self._checks = {}
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+
+        title = Gtk.Label.new("Applications")
+        title.add_css_class("title-2")
+        box.append(title)
+        desc = Gtk.Label.new("Select apps to install from the Bastille verified catalogue. "
+                              "All are sandboxed Flatpaks except system tools.")
+        desc.add_css_class("dim-label"); desc.set_wrap(True)
+        box.append(desc)
+
+        groups = {
+            "Communication": [
+                ("Signal", "signal-desktop", True),
+                ("Thunderbird", "org.mozilla.Thunderbird", True),
+                ("Element (Matrix)", "im.riot.Riot", False),
+            ],
+            "Privacy tools": [
+                ("Tor Browser", "com.github.micahflee.torbrowser-launcher", False),
+                ("OnionShare", "org.onionshare.OnionShare", False),
+                ("KeePassXC", "org.keepassxc.KeePassXC", True),
+                ("Kleopatra (GPG)", "org.kde.kleopatra", False),
+            ],
+            "Media & Documents": [
+                ("LibreOffice", "org.libreoffice.LibreOffice", True),
+                ("VLC", "org.videolan.VLC", False),
+                ("GIMP", "org.gimp.GIMP", False),
+                ("Metadata Cleaner", "fr.romainvigier.MetadataCleaner", True),
+            ],
+            "Peripherals": [
+                ("Cheese (webcam)", "org.gnome.Cheese", False),
+                ("CUPS printer support", "system-cups", False),
+            ],
+        }
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        inner_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        inner_box.set_margin_top(8)
+
+        for group_name, apps in groups.items():
+            pg = Adw.PreferencesGroup()
+            pg.set_title(group_name)
+            for app_name, app_id, default in apps:
+                row = Adw.ActionRow()
+                row.set_title(app_name)
+                row.set_subtitle(app_id)
+                cb = Gtk.CheckButton()
+                cb.set_active(default)
+                cb.set_valign(Gtk.Align.CENTER)
+                row.add_suffix(cb)
+                pg.add(row)
+                self._checks[app_id] = cb
+            inner_box.append(pg)
+
+        scroll.set_child(inner_box)
+        box.append(scroll)
+        self.set_child(box)
+
+    def selected_apps(self):
+        return [k for k, v in self._checks.items() if v.get_active()]
+
+
+class VPNSetupPage(Adw.NavigationPage):
+    def __init__(self):
+        super().__init__(title="VPN Setup")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+
+        title = Gtk.Label.new("VPN / WireGuard")
+        title.add_css_class("title-2")
+        box.append(title)
+
+        r_skip = BastilleToggle("Skip VPN setup", "Configure later in Settings → VPN", active=True)
+        self._skip = r_skip
+
+        pg = Adw.PreferencesGroup()
+        pg.add(r_skip)
+        box.append(pg)
+
+        pg2 = Adw.PreferencesGroup()
+        pg2.set_title("WireGuard config")
+        pg2.set_description("Paste your wg0.conf here")
+        self._tv = Gtk.TextView()
+        self._tv.set_monospace(True)
+        self._tv.set_wrap_mode(Gtk.WrapMode.NONE)
+        self._tv.set_left_margin(12); self._tv.set_right_margin(12)
+        self._tv.set_top_margin(8); self._tv.set_bottom_margin(8)
+        sw = Gtk.ScrolledWindow()
+        sw.set_min_content_height(200)
+        sw.set_child(self._tv)
+        pg2.set_header_suffix(sw)
+        box.append(pg2)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_child(box)
+        self.set_child(scroll)
+
+    def get_wg_conf(self):
+        if self._skip.get_active():
+            return None
+        buf = self._tv.get_buffer()
+        return buf.get_text(buf.get_start_iter(), buf.get_end_iter(), False).strip() or None
+
+
+class SummaryPage(Adw.NavigationPage):
+    def __init__(self):
+        super().__init__(title="Ready")
+        sp = Adw.StatusPage()
+        sp.set_icon_name("emblem-ok-symbolic")
+        sp.set_title("Ready to configure")
+        sp.set_description(
+            "Review your choices above, then click Apply to set up your secure environment.\n"
+            "This may take a few minutes."
+        )
+        sp.set_vexpand(True)
+        self.set_child(sp)
+
+
+# ── Main wizard window ────────────────────────────────────────────────────────
+
+class SetupWizard(Adw.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app)
+        self.set_title("Bastille Setup")
+        self.set_default_size(600, 680)
+        self.set_deletable(False)
+
+        toolbar = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        header.set_show_start_title_buttons(False)
+        header.set_show_end_title_buttons(False)
+
+        self._back_btn = Gtk.Button.new_with_label("Back")
+        self._back_btn.connect("clicked", self._go_back)
+        self._back_btn.set_sensitive(False)
+        header.pack_start(self._back_btn)
+
+        self._next_btn = Gtk.Button.new_with_label("Continue")
+        self._next_btn.add_css_class("suggested-action")
+        self._next_btn.connect("clicked", self._go_next)
+        header.pack_end(self._next_btn)
+
+        toolbar.add_top_bar(header)
+
+        # Stack of pages
+        self._stack = Gtk.Stack()
+        self._stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT)
+        self._stack.set_vexpand(True)
+
+        self._pages = [
+            WelcomePage(),
+            StorageModePage(),
+            PersistencePage(),
+            UserPage(),
+            PinsPage(),
+            ProfilePage(),
+            AppsPage(),
+            VPNSetupPage(),
+            SummaryPage(),
+        ]
+        self._storage_page = self._pages[1]
+        self._persist_page = self._pages[2]
+        self._user_page = self._pages[3]
+        self._pins_page = self._pages[4]
+        self._profile_page = self._pages[5]
+        self._apps_page = self._pages[6]
+        self._vpn_page = self._pages[7]
+
+        for i, page in enumerate(self._pages):
+            self._stack.add_named(page, str(i))
+        self._current = 0
+        self._stack.set_visible_child_name("0")
+
+        progress = Gtk.ProgressBar()
+        self._progress = progress
+        progress.set_margin_start(24); progress.set_margin_end(24)
+        progress.set_margin_bottom(8)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        box.append(self._stack)
+        box.append(progress)
+        toolbar.set_content(box)
+        self.set_content(toolbar)
+        self._update_nav()
+
+    def _update_nav(self):
+        n = len(self._pages)
+        self._progress.set_fraction((self._current + 1) / n)
+        self._back_btn.set_sensitive(self._current > 0)
+        is_last = self._current == n - 1
+        self._next_btn.set_label("Apply" if is_last else "Continue")
+        if is_last:
+            self._next_btn.remove_css_class("suggested-action")
+            self._next_btn.add_css_class("suggested-action")
+
+    def _go_next(self, *_):
+        if self._current == len(self._pages) - 1:
+            self._apply()
+            return
+        # Skip persistence page if installing to disk (handled by bastille-install)
+        next_idx = self._current + 1
+        if next_idx == 2 and self._storage_page.mode == "disk":
+            next_idx = 3
+        self._current = next_idx
+        self._stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT)
+        self._stack.set_visible_child_name(str(self._current))
+        self._update_nav()
+
+    def _go_back(self, *_):
+        if self._current == 0:
+            return
+        prev_idx = self._current - 1
+        if prev_idx == 2 and self._storage_page.mode == "disk":
+            prev_idx = 1
+        self._current = prev_idx
+        self._stack.set_transition_type(Gtk.StackTransitionType.SLIDE_RIGHT)
+        self._stack.set_visible_child_name(str(self._current))
+        self._update_nav()
+
+    def _apply(self):
+        self._next_btn.set_sensitive(False)
+        self._back_btn.set_sensitive(False)
+        self._next_btn.set_label("Applying…")
+
+        # Collect config
+        config = {
+            "storage_mode": self._storage_page.mode,
+            "profile": self._profile_page.profile,
+            "apps": self._apps_page.selected_apps(),
+        }
+
+        # Set password
+        if self._user_page.passwords_match() and self._user_page.get_password():
+            pkexec("/usr/bin/chpasswd", f"user:{self._user_page.get_password()}")
+
+        # Set PINs
+        for attr, pin_type in [("_duress", "duress"), ("_fake_duress", "fake-duress"), ("_dsm", "dsm")]:
+            row = getattr(self._pins_page, attr)
+            pin = row.get_text()
+            if pin and len(pin) >= 4:
+                pkexec("/usr/local/sbin/bastille-set-pins", f"--type={pin_type}", f"--pin={pin}")
+
+        # WireGuard
+        wg = self._vpn_page.get_wg_conf()
+        if wg:
+            pkexec("/usr/local/sbin/bastille-set-wg", "config", wg)
+
+        # Write profile
+        os.makedirs("/etc/bastille", exist_ok=True)
+        with open("/etc/bastille/profile", "w") as f:
+            f.write(config["profile"])
+
+        # Install apps (background)
+        if config["apps"]:
+            apps = config["apps"]
+            def install_apps():
+                for app_id in apps:
+                    if app_id.startswith("org.") or app_id.startswith("com.") or \
+                       app_id.startswith("im.") or app_id.startswith("fr."):
+                        subprocess.run(["flatpak", "install", "-y", "--noninteractive",
+                                        "flathub", app_id],
+                                       capture_output=True)
+            import threading
+            t = threading.Thread(target=install_apps, daemon=True)
+            t.start()
+
+        # If disk mode, launch bastille-install
+        if config["storage_mode"] == "disk":
+            subprocess.Popen(["bastille-install"], start_new_session=True)
+
+        # Mark setup done
+        open(DONE_FLAG, "w").close()
+
+        sp = Adw.StatusPage()
+        sp.set_icon_name("emblem-ok-symbolic")
+        sp.set_title("Setup Complete")
+        sp.set_description("Your Bastille OS environment is configured.\n"
+                           "Apps are installing in the background.")
+        done_btn = Gtk.Button.new_with_label("Start Bastille OS")
+        done_btn.add_css_class("pill")
+        done_btn.add_css_class("suggested-action")
+        done_btn.set_halign(Gtk.Align.CENTER)
+        done_btn.connect("clicked", lambda _: self.get_application().quit())
+        sp.set_child(done_btn)
+
+        self._stack.add_named(sp, "done")
+        self._stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self._stack.set_visible_child_name("done")
+        self._next_btn.set_visible(False)
+        self._back_btn.set_visible(False)
+
+
+class SetupApp(Adw.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
+        self.connect("activate", self._on_activate)
+
+    def _on_activate(self, app):
+        mgr = Adw.StyleManager.get_default()
+        mgr.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+        win = SetupWizard(app)
+        win.present()
+
+
+if __name__ == "__main__":
+    # Skip if already run
+    if os.path.exists(DONE_FLAG) and "--force" not in sys.argv:
+        sys.exit(0)
+    app = SetupApp()
+    sys.exit(app.run(sys.argv))

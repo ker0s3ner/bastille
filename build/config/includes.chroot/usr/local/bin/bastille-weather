@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+"""bastille-weather — Privacy-respecting weather via wttr.in (no API key, no account)."""
+import gi
+gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
+gi.require_version('Soup', '3.0')
+import sys, json
+from gi.repository import Gtk, Adw, Gio, GLib, Soup
+
+APP_ID = "org.bastilleos.Weather"
+
+WTTR_URL = "https://wttr.in/{}?format=j1"
+
+WMO_ICONS = {
+    0: "weather-clear-symbolic", 1: "weather-few-clouds-symbolic",
+    2: "weather-overcast-symbolic", 3: "weather-overcast-symbolic",
+    45: "weather-fog-symbolic", 48: "weather-fog-symbolic",
+    51: "weather-showers-scattered-symbolic", 61: "weather-showers-symbolic",
+    71: "weather-snow-symbolic", 80: "weather-showers-symbolic",
+    95: "weather-storm-symbolic",
+}
+
+
+class WeatherWindow(Adw.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app)
+        self.set_title("Weather")
+        self.set_default_size(480, 560)
+        self._session = Soup.Session()
+
+        toolbar = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        self._loc_entry = Gtk.Entry()
+        self._loc_entry.set_placeholder_text("City or coordinates")
+        self._loc_entry.set_hexpand(True)
+        self._loc_entry.connect("activate", self._fetch)
+        refresh_btn = Gtk.Button()
+        refresh_btn.set_icon_name("view-refresh-symbolic")
+        refresh_btn.connect("clicked", self._fetch)
+        header.set_title_widget(self._loc_entry)
+        header.pack_end(refresh_btn)
+        toolbar.add_top_bar(header)
+
+        self._stack = Gtk.Stack()
+        self._stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+
+        ph = Adw.StatusPage()
+        ph.set_icon_name("weather-clear-symbolic")
+        ph.set_title("Enter a location")
+        ph.set_description("No account or API key required.\nRequests go through tor if active.")
+        self._stack.add_named(ph, "empty")
+
+        self._content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        self._content_box.set_margin_start(24); self._content_box.set_margin_end(24)
+        self._content_box.set_margin_top(24); self._content_box.set_margin_bottom(24)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_child(self._content_box)
+        self._stack.add_named(scroll, "weather")
+
+        toolbar.set_content(self._stack)
+        self.set_content(toolbar)
+        self._stack.set_visible_child_name("empty")
+
+    def _fetch(self, *_):
+        loc = self._loc_entry.get_text().strip() or "auto"
+        url = WTTR_URL.format(loc)
+        msg = Soup.Message.new("GET", url)
+        msg.get_request_headers().append("User-Agent", "bastille-weather/1.0")
+        self._session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, None, self._on_response)
+
+    def _on_response(self, session, result):
+        try:
+            bytes_result = session.send_and_read_finish(result)
+            data = json.loads(bytes_result.get_data().decode())
+            GLib.idle_add(self._update_ui, data)
+        except Exception as e:
+            GLib.idle_add(self._show_error, str(e))
+
+    def _update_ui(self, data):
+        while self._content_box.get_first_child():
+            self._content_box.remove(self._content_box.get_first_child())
+
+        try:
+            cur = data["current_condition"][0]
+            area = data["nearest_area"][0]
+            city = area["areaName"][0]["value"]
+            country = area["country"][0]["value"]
+            temp_c = cur["temp_C"]
+            desc = cur["weatherDesc"][0]["value"]
+            humidity = cur["humidity"]
+            wind_kmph = cur["windspeedKmph"]
+            wmo = int(cur.get("weatherCode", 0))
+
+            icon_name = WMO_ICONS.get(wmo, "weather-clear-symbolic")
+            icon = Gtk.Image.new_from_icon_name(icon_name)
+            icon.set_pixel_size(80)
+            icon.set_halign(Gtk.Align.CENTER)
+            self._content_box.append(icon)
+
+            loc_lbl = Gtk.Label.new(f"{city}, {country}")
+            loc_lbl.add_css_class("title-1")
+            loc_lbl.set_halign(Gtk.Align.CENTER)
+            self._content_box.append(loc_lbl)
+
+            temp_lbl = Gtk.Label.new(f"{temp_c}°C")
+            temp_lbl.add_css_class("display")
+            temp_lbl.set_halign(Gtk.Align.CENTER)
+            self._content_box.append(temp_lbl)
+
+            desc_lbl = Gtk.Label.new(desc)
+            desc_lbl.add_css_class("dim-label")
+            desc_lbl.set_halign(Gtk.Align.CENTER)
+            self._content_box.append(desc_lbl)
+
+            pg = Adw.PreferencesGroup()
+            for title, value in [("Humidity", f"{humidity}%"), ("Wind", f"{wind_kmph} km/h")]:
+                r = Adw.ActionRow()
+                r.set_title(title)
+                r.set_subtitle(value)
+                pg.add(r)
+
+            # 3-day forecast
+            pg2 = Adw.PreferencesGroup()
+            pg2.set_title("3-day forecast")
+            for day in data.get("weather", [])[:3]:
+                date_str = day.get("date", "")
+                max_c = day.get("maxtempC", "?")
+                min_c = day.get("mintempC", "?")
+                r = Adw.ActionRow()
+                r.set_title(date_str)
+                r.set_subtitle(f"{min_c}° – {max_c}°C")
+                pg2.add(r)
+
+            self._content_box.append(pg)
+            self._content_box.append(pg2)
+
+            note = Gtk.Label.new("Data: wttr.in — no account, no tracking")
+            note.add_css_class("caption"); note.add_css_class("dim-label")
+            note.set_halign(Gtk.Align.CENTER)
+            self._content_box.append(note)
+
+        except Exception as e:
+            self._show_error(str(e))
+            return
+
+        self._stack.set_visible_child_name("weather")
+
+    def _show_error(self, msg):
+        sp = Adw.StatusPage()
+        sp.set_icon_name("network-error-symbolic")
+        sp.set_title("Could not fetch weather")
+        sp.set_description(msg)
+        self._stack.add_named(sp, "error")
+        self._stack.set_visible_child_name("error")
+
+
+class WeatherApp(Adw.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
+        self.connect("activate", lambda a: WeatherWindow(a).present())
+
+if __name__ == "__main__":
+    Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+    sys.exit(WeatherApp().run(sys.argv))

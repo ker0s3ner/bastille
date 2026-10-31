@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Calendar
+Comment=Local calendar
+Exec=bastille-calendar
+Icon=x-office-calendar-symbolic
+Categories=Utility;Office;

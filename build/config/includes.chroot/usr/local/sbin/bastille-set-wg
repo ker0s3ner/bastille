@@ -1,0 +1,27 @@
+#!/bin/sh
+# bastille-set-wg — polkit-gated WireGuard manager
+set -e
+die() { echo "bastille-set-wg: $*" >&2; exit 1; }
+
+[ "$(id -u)" = "0" ] || die "must run as root (pkexec)"
+[ -n "$1" ] || die "usage: bastille-set-wg <up|down|config <conf-data>>"
+
+case "$1" in
+    up)
+        [ -f /etc/wireguard/wg0.conf ] || die "no /etc/wireguard/wg0.conf"
+        wg-quick up wg0 2>/dev/null || true
+        echo "OK: wg0 up"
+        ;;
+    down)
+        wg-quick down wg0 2>/dev/null || true
+        echo "OK: wg0 down"
+        ;;
+    config)
+        [ -n "$2" ] || die "config: missing data argument"
+        install -d -m 700 /etc/wireguard
+        printf '%s\n' "$2" > /etc/wireguard/wg0.conf
+        chmod 600 /etc/wireguard/wg0.conf
+        echo "OK: wg0.conf saved"
+        ;;
+    *) die "unknown action '$1'" ;;
+esac

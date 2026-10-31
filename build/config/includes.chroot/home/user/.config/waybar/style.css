@@ -1,0 +1,103 @@
+/* Bastille OS — Waybar theme */
+
+* {
+    font-family: "IBM Plex Sans", "DejaVu Sans", sans-serif;
+    font-size: 13px;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+}
+
+window#waybar {
+    background: rgba(11, 12, 16, 0.92);
+    color: #c9d1d9;
+    border-bottom: 1px solid #1f3a5f;
+}
+
+/* Workspaces */
+#workspaces button {
+    padding: 0 10px;
+    color: #8b949e;
+    background: transparent;
+    border-radius: 4px;
+    margin: 4px 2px;
+    transition: background 120ms;
+}
+#workspaces button:hover {
+    background: rgba(79, 143, 212, 0.15);
+    color: #c9d1d9;
+}
+#workspaces button.focused {
+    background: #1c4a8a;
+    color: #fff;
+}
+#workspaces button.urgent {
+    background: #3a1a1a;
+    color: #f85149;
+}
+
+/* Clock */
+#clock {
+    font-weight: 500;
+    color: #c9d1d9;
+}
+
+/* Right modules */
+#network,
+#pulseaudio,
+#battery,
+#custom-vpn-status,
+#custom-lock,
+#custom-power {
+    padding: 0 10px;
+    margin: 4px 0;
+    border-radius: 6px;
+    color: #c9d1d9;
+}
+
+#custom-vpn-status.connected {
+    color: #3fb950;
+    background: rgba(63, 185, 80, 0.1);
+    border-radius: 6px;
+    padding: 0 10px;
+}
+#custom-vpn-status.disconnected {
+    color: #f85149;
+    background: rgba(248, 81, 73, 0.1);
+    border-radius: 6px;
+    padding: 0 10px;
+}
+
+#battery.warning {
+    color: #e3b341;
+}
+#battery.critical {
+    color: #f85149;
+    animation: blink 1s linear infinite;
+}
+
+@keyframes blink {
+    to { opacity: 0.5; }
+}
+
+#tray {
+    padding: 0 8px;
+}
+
+#custom-lock,
+#custom-power {
+    font-size: 15px;
+    padding: 0 12px;
+}
+#custom-lock:hover,
+#custom-power:hover {
+    background: rgba(79, 143, 212, 0.15);
+    cursor: pointer;
+}
+
+/* Dock (bottom bar) */
+window#waybar.bottom {
+    background: rgba(11, 12, 16, 0.88);
+    border-top: 1px solid #1f3a5f;
+    border-bottom: none;
+}

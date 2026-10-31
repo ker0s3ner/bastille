@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Bastille Setup
+Comment=First-boot configuration wizard
+Exec=bastille-setup --force
+Icon=emblem-system-symbolic
+Categories=Settings;
+NoDisplay=true

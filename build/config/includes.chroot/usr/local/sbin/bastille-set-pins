@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+"""bastille-set-pins — polkit-gated PIN manager (login, duress, fake-duress, DSM)."""
+
+import sys
+import os
+import argparse
+import hashlib
+import secrets
+import json
+
+PINS_FILE = "/etc/bastille/pins.conf"
+PINS_DIR  = "/etc/bastille"
+
+def die(msg):
+    print(f"bastille-set-pins: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+def argon2_hash(pin: str) -> str:
+    """Simple PBKDF2-SHA512 hash. In production replace with argon2-cffi."""
+    salt = secrets.token_hex(32)
+    h = hashlib.pbkdf2_hmac("sha512", pin.encode(), salt.encode(), 600_000)
+    return f"pbkdf2:sha512:600000:{salt}:{h.hex()}"
+
+def load_pins():
+    if not os.path.exists(PINS_FILE):
+        return {}
+    try:
+        with open(PINS_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_pins(data):
+    os.makedirs(PINS_DIR, exist_ok=True)
+    tmp = PINS_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, PINS_FILE)
+    os.chmod(PINS_FILE, 0o600)
+
+def main():
+    if os.geteuid() != 0:
+        die("must run as root (use pkexec)")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--type", required=True,
+                        choices=["login", "duress", "fake-duress", "dsm"],
+                        dest="pin_type")
+    parser.add_argument("--pin", required=True)
+    parser.add_argument("--clear", action="store_true")
+    args = parser.parse_args()
+
+    if not args.clear and (len(args.pin) < 4 or not args.pin.isdigit()):
+        die("PIN must be 4+ digits")
+
+    pins = load_pins()
+
+    if args.clear:
+        pins.pop(args.pin_type, None)
+    else:
+        pins[args.pin_type] = argon2_hash(args.pin)
+
+    save_pins(pins)
+
+    # DSM flag file
+    if args.pin_type == "dsm":
+        flag = "/etc/bastille/dsm.enabled"
+        if args.clear:
+            try: os.unlink(flag)
+            except FileNotFoundError: pass
+        else:
+            open(flag, "w").close()
+            os.chmod(flag, 0o600)
+
+    print(f"PIN type '{args.pin_type}' {'cleared' if args.clear else 'set'} successfully.")
+
+if __name__ == "__main__":
+    main()

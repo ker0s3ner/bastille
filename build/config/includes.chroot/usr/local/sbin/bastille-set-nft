@@ -1,0 +1,17 @@
+#!/bin/sh
+# bastille-set-nft — polkit-gated nftables rules updater
+set -e
+die() { echo "bastille-set-nft: $*" >&2; exit 1; }
+
+[ "$(id -u)" = "0" ] || die "must run as root (pkexec)"
+[ -n "$1" ] || die "usage: bastille-set-nft <rules-file>"
+[ -f "$1" ] || die "file not found: $1"
+
+# Validate syntax before applying
+nft -c -f "$1" 2>/dev/null || die "nftables syntax error in $1"
+
+cp "$1" /etc/nftables.conf
+chmod 640 /etc/nftables.conf
+
+nft -f /etc/nftables.conf
+echo "OK: nftables rules applied"

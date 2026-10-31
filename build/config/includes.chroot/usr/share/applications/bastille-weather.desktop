@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Weather
+Comment=Privacy-respecting weather (wttr.in)
+Exec=bastille-weather
+Icon=weather-clear-symbolic
+Categories=Utility;

@@ -1,0 +1,355 @@
+#!/usr/bin/env python3
+"""bastille-install — LUKS2-encrypted full-disk installer."""
+
+import gi
+gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
+
+import os
+import sys
+import subprocess
+import glob
+import json
+import threading
+from gi.repository import Gtk, Adw, Gio, GLib
+
+APP_ID = "org.bastilleos.Installer"
+SQUASHFS_SRC = "/run/live/medium/live/filesystem.squashfs"
+
+
+def run(*args, check=True, capture=True):
+    return subprocess.run(list(args), capture_output=capture, text=True, check=check)
+
+
+def list_disks():
+    """Return list of (path, size_human, model) tuples for block devices."""
+    disks = []
+    try:
+        out = run("lsblk", "-J", "-o", "NAME,SIZE,MODEL,TYPE,HOTPLUG").stdout
+        data = json.loads(out)
+        for dev in data.get("blockdevices", []):
+            if dev.get("type") == "disk":
+                path = f"/dev/{dev['name']}"
+                size = dev.get("size", "?")
+                model = (dev.get("model") or "").strip() or "Unknown"
+                disks.append((path, size, model))
+    except Exception:
+        pass
+    return disks
+
+
+def get_squashfs():
+    """Find the source squashfs."""
+    candidates = [
+        SQUASHFS_SRC,
+        "/run/bastille/filesystem.squashfs",
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return None
+
+
+class LogWindow(Adw.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app)
+        self.set_title("Bastille Installer")
+        self.set_default_size(680, 500)
+        self.set_deletable(False)
+
+        toolbar = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        header.set_show_start_title_buttons(False)
+        header.set_show_end_title_buttons(False)
+        toolbar.add_top_bar(header)
+
+        self._stack = Gtk.Stack()
+        self._stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT)
+        toolbar.set_content(self._stack)
+        self.set_content(toolbar)
+
+        self._build_disk_page()
+
+    def _build_disk_page(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        box.set_margin_start(32); box.set_margin_end(32)
+        box.set_margin_top(24); box.set_margin_bottom(24)
+
+        title = Gtk.Label.new("Install Bastille OS to Disk")
+        title.add_css_class("title-2")
+        box.append(title)
+
+        warn = Adw.Banner()
+        warn.set_title("Warning: the selected disk will be completely erased.")
+        warn.set_revealed(True)
+        box.append(warn)
+
+        pg = Adw.PreferencesGroup()
+        pg.set_title("Target disk")
+
+        disks = list_disks()
+        if not disks:
+            r = Adw.ActionRow()
+            r.set_title("No suitable disks found")
+            r.set_subtitle("Connect a disk and reopen the installer")
+            pg.add(r)
+        else:
+            combo = Adw.ComboRow()
+            combo.set_title("Disk")
+            model = Gtk.StringList.new([f"{p}  {s}  {m}" for p, s, m in disks])
+            combo.set_model(model)
+            combo.set_selected(0)
+            self._disk_combo = combo
+            self._disks = disks
+            pg.add(combo)
+
+        pg2 = Adw.PreferencesGroup()
+        pg2.set_title("Encryption")
+        pass_row = Adw.PasswordEntryRow()
+        pass_row.set_title("Disk passphrase")
+        self._disk_pass = pass_row
+        confirm_row = Adw.PasswordEntryRow()
+        confirm_row.set_title("Confirm passphrase")
+        self._disk_confirm = confirm_row
+        pg2.add(pass_row)
+        pg2.add(confirm_row)
+
+        box.append(pg)
+        box.append(pg2)
+
+        install_btn = Gtk.Button.new_with_label("Install Now")
+        install_btn.add_css_class("pill")
+        install_btn.add_css_class("destructive-action")
+        install_btn.set_halign(Gtk.Align.END)
+        install_btn.connect("clicked", self._confirm_install)
+        box.append(install_btn)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_child(box)
+        self._stack.add_named(scroll, "disk")
+        self._stack.set_visible_child_name("disk")
+
+    def _confirm_install(self, *_):
+        if not hasattr(self, "_disk_combo"):
+            return
+        p1 = self._disk_pass.get_text()
+        p2 = self._disk_confirm.get_text()
+        if p1 != p2 or len(p1) < 8:
+            dlg = Adw.MessageDialog.new(self)
+            dlg.set_heading("Passphrase error")
+            dlg.set_body("Passphrases must match and be at least 8 characters.")
+            dlg.add_response("ok", "OK")
+            dlg.present()
+            return
+        disk_path = self._disks[self._disk_combo.get_selected()][0]
+        dlg = Adw.MessageDialog.new(self)
+        dlg.set_heading(f"Erase {disk_path}?")
+        dlg.set_body(f"ALL DATA on {disk_path} will be permanently destroyed.\n"
+                     f"This cannot be undone.")
+        dlg.add_response("cancel", "Cancel")
+        dlg.add_response("erase", f"Erase and Install")
+        dlg.set_response_appearance("erase", Adw.ResponseAppearance.DESTRUCTIVE)
+        dlg.connect("response", lambda d, r: self._start_install(disk_path, p1) if r == "erase" else None)
+        dlg.present()
+
+    def _start_install(self, disk, passphrase):
+        self._build_log_page()
+        self._stack.set_visible_child_name("log")
+        squashfs = get_squashfs()
+        if not squashfs:
+            self._log("ERROR: Could not find source squashfs.\n")
+            return
+        t = threading.Thread(target=self._run_install, args=(disk, passphrase, squashfs), daemon=True)
+        t.start()
+
+    def _build_log_page(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        header = Gtk.Label.new("Installing Bastille OS…")
+        header.add_css_class("title-3")
+        header.set_margin_start(24); header.set_margin_top(16)
+        header.set_halign(Gtk.Align.START)
+        box.append(header)
+
+        self._progress_bar = Gtk.ProgressBar()
+        self._progress_bar.set_margin_start(24); self._progress_bar.set_margin_end(24)
+        box.append(self._progress_bar)
+
+        tv = Gtk.TextView()
+        tv.set_editable(False)
+        tv.set_monospace(True)
+        tv.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        tv.set_left_margin(16); tv.set_right_margin(16)
+        tv.set_top_margin(8); tv.set_bottom_margin(8)
+        self._log_tv = tv
+        sw = Gtk.ScrolledWindow()
+        sw.set_vexpand(True)
+        sw.set_child(tv)
+        box.append(sw)
+
+        self._stack.add_named(box, "log")
+
+    def _log(self, msg):
+        GLib.idle_add(self._log_append, msg)
+
+    def _log_append(self, msg):
+        buf = self._log_tv.get_buffer()
+        end = buf.get_end_iter()
+        buf.insert(end, msg)
+        # Scroll to bottom
+        adj = self._log_tv.get_parent().get_vadjustment()
+        adj.set_value(adj.get_upper() - adj.get_page_size())
+
+    def _set_progress(self, frac):
+        GLib.idle_add(self._progress_bar.set_fraction, frac)
+
+    def _run_install(self, disk, passphrase, squashfs):
+        """Run the actual partitioning + LUKS2 + filesystem setup."""
+        try:
+            self._do_install(disk, passphrase, squashfs)
+        except Exception as e:
+            self._log(f"\nFATAL ERROR: {e}\n")
+            GLib.idle_add(self._show_error, str(e))
+
+    def _do_install(self, disk, passphrase, squashfs):
+        self._log(f"Target disk: {disk}\n")
+        self._log("Partitioning disk…\n")
+        # Wipe + GPT
+        run("wipefs", "-a", disk)
+        run("parted", "-s", disk, "mklabel", "gpt")
+        run("parted", "-s", disk, "mkpart", "ESP", "fat32", "1MiB", "513MiB")
+        run("parted", "-s", disk, "set", "1", "esp", "on")
+        run("parted", "-s", disk, "mkpart", "bastille-luks", "513MiB", "100%")
+        self._set_progress(0.1)
+
+        # Determine partition names (nvme uses p1/p2, sata uses 1/2)
+        if "nvme" in disk or "mmcblk" in disk:
+            efi_part = disk + "p1"
+            luks_part = disk + "p2"
+        else:
+            efi_part = disk + "1"
+            luks_part = disk + "2"
+
+        self._log("Formatting EFI partition…\n")
+        run("mkfs.fat", "-F32", "-n", "BASTILLE-EFI", efi_part)
+        self._set_progress(0.15)
+
+        self._log("Creating LUKS2 container (argon2id)…\n")
+        luks_proc = subprocess.run(
+            ["cryptsetup", "luksFormat", "--type=luks2", "--pbkdf=argon2id",
+             "--pbkdf-memory=1048576", "--pbkdf-parallel=4", "--iter-time=5000",
+             "--label=BASTILLE-ROOT", luks_part],
+            input=passphrase, text=True, capture_output=True
+        )
+        if luks_proc.returncode != 0:
+            raise RuntimeError(f"luksFormat failed: {luks_proc.stderr}")
+        self._set_progress(0.3)
+
+        self._log("Opening LUKS2 container…\n")
+        open_proc = subprocess.run(
+            ["cryptsetup", "luksOpen", luks_part, "bastille-root"],
+            input=passphrase, text=True, capture_output=True
+        )
+        if open_proc.returncode != 0:
+            raise RuntimeError(f"luksOpen failed: {open_proc.stderr}")
+
+        dm_path = "/dev/mapper/bastille-root"
+        self._log("Formatting root partition (ext4)…\n")
+        run("mkfs.ext4", "-L", "BASTILLE-ROOT", dm_path)
+        self._set_progress(0.4)
+
+        self._log("Mounting target…\n")
+        os.makedirs("/mnt/bastille-target", exist_ok=True)
+        run("mount", dm_path, "/mnt/bastille-target")
+        os.makedirs("/mnt/bastille-target/boot/efi", exist_ok=True)
+        run("mount", efi_part, "/mnt/bastille-target/boot/efi")
+
+        self._log(f"Extracting squashfs to target ({squashfs})…\n")
+        self._log("(This may take several minutes)\n")
+        run("unsquashfs", "-f", "-d", "/mnt/bastille-target", squashfs, check=False)
+        self._set_progress(0.75)
+
+        self._log("Installing GRUB bootloader…\n")
+        # GRUB EFI
+        run("grub-install",
+            f"--target=x86_64-efi",
+            f"--efi-directory=/mnt/bastille-target/boot/efi",
+            f"--boot-directory=/mnt/bastille-target/boot",
+            "--removable",
+            check=False)
+
+        # Write GRUB config
+        luks_uuid = run("blkid", "-s", "UUID", "-o", "value", luks_part).stdout.strip()
+        grub_cfg = f"""set timeout=5
+set default=0
+menuentry "Bastille OS" {{
+  insmod part_gpt
+  insmod ext2
+  insmod cryptodisk
+  insmod luks2
+  cryptomount -u {luks_uuid}
+  set root='cryptouuid/{luks_uuid}'
+  linux /boot/vmlinuz root=/dev/mapper/bastille-root ro quiet loglevel=0 \\
+        rd.luks.uuid={luks_uuid} rd.luks.name={luks_uuid}=bastille-root \\
+        apparmor=1 security=apparmor
+  initrd /boot/initrd.img
+}}
+"""
+        os.makedirs("/mnt/bastille-target/boot/grub", exist_ok=True)
+        with open("/mnt/bastille-target/boot/grub/grub.cfg", "w") as f:
+            f.write(grub_cfg)
+
+        # Write crypttab
+        with open("/mnt/bastille-target/etc/crypttab", "w") as f:
+            f.write(f"bastille-root UUID={luks_uuid} none luks,discard\n")
+
+        self._set_progress(0.9)
+
+        self._log("Unmounting…\n")
+        run("umount", "/mnt/bastille-target/boot/efi", check=False)
+        run("umount", "/mnt/bastille-target", check=False)
+        run("cryptsetup", "luksClose", "bastille-root", check=False)
+
+        self._set_progress(1.0)
+        self._log("\nInstallation complete!\n")
+        self._log("You can now boot from the disk. Remove the live USB first.\n")
+        GLib.idle_add(self._show_done)
+
+    def _show_done(self):
+        sp = Adw.StatusPage()
+        sp.set_icon_name("emblem-ok-symbolic")
+        sp.set_title("Installation Complete")
+        sp.set_description("Bastille OS has been installed.\nRemove the live USB and reboot.")
+        btn = Gtk.Button.new_with_label("Reboot Now")
+        btn.add_css_class("pill"); btn.add_css_class("suggested-action")
+        btn.set_halign(Gtk.Align.CENTER)
+        btn.connect("clicked", lambda _: run("reboot", check=False))
+        sp.set_child(btn)
+        self._stack.add_named(sp, "done")
+        self._stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self._stack.set_visible_child_name("done")
+
+    def _show_error(self, msg):
+        dlg = Adw.MessageDialog.new(self)
+        dlg.set_heading("Installation failed")
+        dlg.set_body(msg)
+        dlg.add_response("ok", "OK")
+        dlg.present()
+
+
+class InstallerApp(Adw.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
+        self.connect("activate", self._on_activate)
+
+    def _on_activate(self, app):
+        if os.geteuid() != 0:
+            # Re-exec via pkexec
+            os.execvp("pkexec", ["pkexec", sys.argv[0]] + sys.argv[1:])
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+        win = LogWindow(app)
+        win.present()
+
+
+if __name__ == "__main__":
+    app = InstallerApp()
+    sys.exit(app.run(sys.argv))

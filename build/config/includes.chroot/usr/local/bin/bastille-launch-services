@@ -1,0 +1,18 @@
+#!/bin/sh
+# bastille-launch-services — started by Sway exec_always
+# Starts user-space daemons that need the Wayland session running.
+
+# mako notification daemon
+pgrep -x mako >/dev/null 2>&1 || mako &
+
+# nm-applet (network tray icon)
+pgrep -f nm-applet >/dev/null 2>&1 || nm-applet --indicator &
+
+# polkit agent
+pgrep -f polkit-gnome >/dev/null 2>&1 || \
+    /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+
+# kanshi (display layout daemon)
+pgrep -x kanshi >/dev/null 2>&1 || kanshi &
+
+wait

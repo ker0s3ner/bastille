@@ -1,0 +1,29 @@
+// Bastille OS — polkit rules for all privileged helpers
+// All helpers are owned root:root, mode 700.
+// Only the interactive local user 'user' may run them via pkexec.
+
+const BASTILLE_HELPERS = [
+    "/usr/local/sbin/bastille-set-pins",
+    "/usr/local/sbin/bastille-set-service",
+    "/usr/local/sbin/bastille-set-nft",
+    "/usr/local/sbin/bastille-set-wg",
+    "/usr/local/sbin/bastille-set-dns",
+    "/usr/local/sbin/bastille-update",
+    "/usr/local/sbin/bastille-install",
+    "/usr/local/src/thl-persist/thl-persist-setup",
+];
+
+polkit.addRule(function(action, subject) {
+    if (action.id !== "org.freedesktop.policykit.exec") return;
+    var prog = action.lookup("program");
+    if (!prog) return;
+    for (var i = 0; i < BASTILLE_HELPERS.length; i++) {
+        if (prog === BASTILLE_HELPERS[i]) {
+            if (subject.user === "user" &&
+                subject.local === true &&
+                subject.active === true) {
+                return polkit.Result.AUTH_SELF;
+            }
+        }
+    }
+});

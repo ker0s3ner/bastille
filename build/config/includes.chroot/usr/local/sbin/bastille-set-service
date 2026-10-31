@@ -1,0 +1,30 @@
+#!/bin/sh
+# bastille-set-service — polkit-gated OpenRC service enable/disable
+set -e
+
+die() { echo "bastille-set-service: $*" >&2; exit 1; }
+
+[ "$(id -u)" = "0" ] || die "must run as root (pkexec)"
+[ $# -eq 2 ] || die "usage: bastille-set-service <service> <enable|disable|start|stop>"
+
+SVC="$1"
+ACTION="$2"
+
+# Allowlist — only permitted services
+case "$SVC" in
+    nftables|dnscrypt-proxy|bastille-ramwipe|bastille-bfu-idle|bastille-dsm-watchdog|\
+    bastille-update-check|usbguard|apparmor|NetworkManager|greetd|\
+    thl-bluetooth-block|thl-me-neutralize|thl-dns-lock|thl-ram-scrub|wg-quick.wg0)
+        : ;;
+    *) die "service '$SVC' not in allowlist" ;;
+esac
+
+case "$ACTION" in
+    enable)  rc-update add "$SVC" default 2>/dev/null || rc-update add "$SVC" boot 2>/dev/null || true ;;
+    disable) rc-update del "$SVC" 2>/dev/null || true ;;
+    start)   rc-service "$SVC" start ;;
+    stop)    rc-service "$SVC" stop ;;
+    *) die "unknown action '$ACTION'" ;;
+esac
+
+echo "OK: $SVC $ACTION"

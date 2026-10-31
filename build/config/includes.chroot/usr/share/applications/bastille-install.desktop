@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Install Bastille OS
+Comment=Install Bastille to disk with LUKS2 encryption
+Exec=bastille-install
+Icon=drive-harddisk-symbolic
+Categories=Settings;

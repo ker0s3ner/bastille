@@ -1,0 +1,62 @@
+#!/bin/bash
+# Hook: Set permissions on all Bastille apps and helpers
+set -euo pipefail
+
+# ── User-facing apps (executable by user) ─────────────────────────────────────
+for bin in \
+    /usr/local/bin/bastille-settings \
+    /usr/local/bin/bastille-setup \
+    /usr/local/bin/bastille-launcher \
+    /usr/local/bin/bastille-powermenu \
+    /usr/local/bin/bastille-notes \
+    /usr/local/bin/bastille-calendar \
+    /usr/local/bin/bastille-weather \
+    /usr/local/bin/bastille-maps \
+    /usr/local/bin/bastille-update; do
+    [ -f "$bin" ] && chmod 755 "$bin"
+done
+
+# ── Polkit-gated root helpers (root:root, 700 — only pkexec can run these) ────
+for sbin in \
+    /usr/local/sbin/bastille-set-pins \
+    /usr/local/sbin/bastille-set-service \
+    /usr/local/sbin/bastille-set-nft \
+    /usr/local/sbin/bastille-set-wg \
+    /usr/local/sbin/bastille-set-dns \
+    /usr/local/sbin/bastille-update \
+    /usr/local/sbin/bastille-install; do
+    [ -f "$sbin" ] && chmod 700 "$sbin" && chown root:root "$sbin"
+done
+
+# ── Bastille config dir ────────────────────────────────────────────────────────
+install -d -m 750 /etc/bastille
+chown root:root /etc/bastille
+
+# Create default version file if missing
+if [ ! -f /etc/bastille/version ]; then
+    echo "dev-$(date +%Y%m%d)" > /etc/bastille/version
+fi
+
+# ── Sway / Waybar / swaylock — fix home dir ownership ─────────────────────────
+# These configs are laid in as root; chown to 'user' at runtime via login hook
+# (done in /etc/profile.d/bastille-home-perms.sh)
+
+# ── Polkit rules ──────────────────────────────────────────────────────────────
+chmod 644 /usr/share/polkit-1/rules.d/50-bastille-helpers.rules 2>/dev/null || true
+
+# ── Desktop database ──────────────────────────────────────────────────────────
+update-desktop-database /usr/share/applications 2>/dev/null || true
+
+# ── greetd — update config to use gtkgreet if available ──────────────────────
+if command -v gtkgreet >/dev/null 2>&1; then
+    cat > /etc/greetd/config.toml << 'TOML'
+[terminal]
+vt = 1
+
+[default_session]
+command = "gtkgreet -l -s /etc/greetd/bastille.css -c sway"
+user = "greeter"
+TOML
+fi
+
+echo "bastille-apps-setup: done"

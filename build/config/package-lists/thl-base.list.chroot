@@ -43,7 +43,6 @@ libgl1-mesa-dri
 # Network & VPN
 wireguard-tools
 network-manager
-# nmtui / nmcli used for network management (no GTK tray needed on Sway)
 iproute2
 nftables
 
@@ -68,16 +67,6 @@ dpkg-dev
 # Hook 0070 — USBGuard
 usbguard
 
-# Hook 0080 — firmware tools (amd64 only; arm64 workflow strips these)
-python3-pip
-
-# Hook 0090 — new features
-python3-opencv
-python3-numpy
-libnotify-bin
-live-boot
-live-boot-initramfs-tools
-
 # Security
 apparmor
 apparmor-utils
@@ -96,6 +85,10 @@ dosfstools
 # Browser (DoH handled by dnscrypt-proxy; browser DNS locked via policies.json)
 firefox-esr
 
+# Onion routing (opt-in — disabled by default; tor: SOCKS proxy; i2pd: I2P network)
+tor
+i2pd
+
 # User app installs (no sudo required — user-level Flatpak installs only)
 flatpak
 xdg-desktop-portal
@@ -109,18 +102,13 @@ less
 file
 htop
 lsof
-strace
 fwupd
-secure-delete
 nvme-cli
 hdparm
-xprintidle
 python3-gi
 python3-gi-cairo
-gir1.2-gtk-3.0
 python3-argon2
 libsodium23
-cron
 
 # Privacy & anti-forensics tools
 secure-delete
@@ -136,15 +124,51 @@ python3
 parted
 jq
 
-# neofetch (fastfetch installed via hook from GitHub release)
-neofetch
-
 # Fonts & theming
 fonts-dejavu-core
 fonts-liberation
 adwaita-icon-theme
+fonts-noto-core
+fonts-inter
 
-# GTK4/libadwaita (for settings app and setup wizard)
-python3-gi
+# GTK4/libadwaita (for settings app, wizard, and custom apps)
 gir1.2-adw-1
+gir1.2-gtk-4.0
 libadwaita-1-0
+gir1.2-soup-3.0
+libsoup-3.0-0
+
+# WebKitGTK (for bastille-maps)
+gir1.2-webkit-6.0
+libwebkit2gtk-4.1-0
+
+# Wayland / UI extras
+alacritty
+mako-notifier
+polkit-gnome
+nm-tray
+pavucontrol
+
+# Age encryption (for bastille-notes)
+age
+
+# Disk installer dependencies
+squashfs-tools
+grub-efi-amd64
+grub-efi-amd64-bin
+efibootmgr
+parted
+unsquashfs
+
+# IBM Plex fonts
+fonts-ibm-plex
+
+# Notification support
+libnotify-bin
+libnotify4
+
+# swaylock extras (clock on lock screen)
+swaylock
+
+# greetd gtkgreet
+greetd-gtkgreet
