@@ -23,7 +23,7 @@ docker run --rm --privileged \
   bastille-arm64-builder \
   bash -c '
     set -euo pipefail
-    bash /bastille/build.sh
+    bash /bastille/build.sh --architectures arm64
     ISO=$(ls -1t /bastille/build/live-image-*.hybrid.iso 2>/dev/null | head -1)
     cp "$ISO" /output/live-image-arm64.hybrid.iso
     echo "Copied to /output/live-image-arm64.hybrid.iso"

@@ -29,7 +29,7 @@ chmod +x "$BUILD_DIR"/config/hooks/live/*.hook.chroot 2>/dev/null || true
 cd "$BUILD_DIR"
 
 echo "--- Configuring live-build ---"
-lb config
+lb config "${@}"
 
 echo "--- Building ISO ---"
 lb build
