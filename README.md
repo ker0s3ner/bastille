@@ -3,6 +3,8 @@
 A security-hardened Debian 13 (Trixie) live and installable Linux desktop. It can
 run ephemerally from USB or install to an encrypted local disk for daily use.
 
+Current release: **1.1.0** "Hyena" (see `VERSION` and `CODENAME`). Targets amd64 and arm64.
+
 ---
 
 ## What it is
@@ -64,7 +66,21 @@ bash build-amd64-local.sh
 bash build-arm64-local.sh
 ```
 
-Requires Docker with `--privileged` support.
+Requires Docker with `--privileged` support. ISOs are written under `build/`
+(`live-image-<arch>.hybrid.iso`); checksums and logs land in `output/`.
+
+### Validation and tests
+
+CI runs these before building, and you can run them locally:
+
+```bash
+bash scripts/validate-build.sh --check-apt   # hook order/permissions, package references (--check-apt needs apt-cache, i.e. a Debian host)
+bash scripts/test-installer-preflight.sh     # installer refuses unsafe installs (e.g. Secure Boot on)
+bash scripts/test-update-rollback.sh         # live-media update and rollback
+bash scripts/test-backup-safety.sh           # bastille-backup safety checks
+bash scripts/test-backup-roundtrip.sh        # backup create/list/restore round trip
+bash scripts/test-duress-verify.sh           # bastille-duress-verify audit
+```
 
 ---
 
@@ -143,18 +159,28 @@ universal recovery guarantee.
 ## Repo structure
 
 ```
+VERSION, CODENAME           release version and name
 build/
-  auto/config               — live-build configuration
+  auto/                     live-build config/build/clean scripts
   config/
-    package-lists/          — packages baked into the ISO
-    hooks/live/             — chroot hooks (numbered, run in order)
-    includes.chroot/        — files dropped into the live filesystem
-      etc/bastille/         — runtime config (duress PINs, keystore, actions)
-      etc/init.d/           — OpenRC services
-      usr/local/src/        — C security tool sources (compiled during build)
-      usr/local/sbin/       — compiled binaries + shell helpers
-src/                        — source mirrors for security tools (auditable)
-.github/workflows/          — CI: amd64 + arm64 builds
+    package-lists/          packages baked into the ISO
+    hooks/live/             numbered chroot hooks, run in order
+    includes.chroot/        files dropped into the live filesystem
+      etc/bastille/         runtime config (duress PINs, keystore, actions)
+      etc/init.d/           OpenRC services
+      usr/local/src/        C security tool sources (compiled during build)
+      usr/local/sbin/       compiled binaries and shell helpers
+        (bastille-update, bastille-recovery, bastille-duress-verify,
+         bastille-install-backend, bastille-dsm, bastille-network-guard, ...)
+src/                        auditable source for the security tools:
+                            bastille-duress, bastille-keyguard, bastille-usb,
+                            bastille-firmware, bastille-persist, bastille-profile,
+                            bastille-vision, gpggrid
+scripts/                    validate-build.sh, test-*.sh, sync-apps-repo.py
+docs/                       static HTML docs: build, features, threat model
+site/docs/                  markdown docs (first boot, threat model)
+plans/daily-driver.md       roadmap to a daily-driver release
+.github/workflows/          CI: build-iso.yml (amd64), build-iso-arm64.yml
 ```
 
 ---
